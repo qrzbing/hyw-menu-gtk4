@@ -13,6 +13,7 @@ use crate::config::{
     ButtonConfig, GridSectionConfig, HeaderStatConfig, LauncherConfig, MenuAction,
 };
 use crate::hyprland::{HyprlandContext, preferred_monitor};
+use crate::style::install_global_css;
 
 pub struct LauncherApp {
     config: Arc<LauncherConfig>,
@@ -36,6 +37,7 @@ impl LauncherApp {
 
         app.connect_activate(move |application| {
             let display = Display::default().expect("No display available");
+            install_global_css(&display);
             let monitor = preferred_monitor(&display, hyprland.as_ref(), config.window.min_width)
                 .expect("No monitor available");
 
@@ -84,6 +86,7 @@ impl LauncherWindow {
 
     fn build_root_container(&self) -> GtkBox {
         let root = GtkBox::new(Orientation::Horizontal, 0);
+        root.add_css_class("launcher-root");
         root.append(&self.build_sidebar_nav());
         root.append(&self.build_right_panel());
         root
@@ -91,6 +94,7 @@ impl LauncherWindow {
 
     fn build_sidebar_nav(&self) -> GtkBox {
         let sidebar = GtkBox::new(Orientation::Vertical, self.config.sidebar.spacing);
+        sidebar.add_css_class("launcher-sidebar");
         sidebar.set_width_request(self.config.window.sidebar_width);
         sidebar.set_margin_top(self.config.sidebar.outer_margin);
         sidebar.set_margin_bottom(self.config.sidebar.outer_margin);
@@ -107,6 +111,7 @@ impl LauncherWindow {
 
     fn build_sidebar_button(&self, button: &ButtonConfig) -> Button {
         let widget = Button::with_label(&button.label);
+        widget.add_css_class("launcher-sidebar-button");
         widget.set_hexpand(true);
         widget.set_tooltip_text(Some(&Self::button_tooltip(button)));
         widget
@@ -114,6 +119,7 @@ impl LauncherWindow {
 
     fn build_right_panel(&self) -> GtkBox {
         let panel = GtkBox::new(Orientation::Vertical, self.config.grid.spacing);
+        panel.add_css_class("launcher-right-panel");
         panel.set_hexpand(true);
         panel.set_vexpand(true);
         panel.set_margin_top(self.config.header.outer_margin);
@@ -145,11 +151,13 @@ impl LauncherWindow {
         title.set_halign(Align::Start);
         title.set_xalign(0.0);
         title.add_css_class("title-1");
+        title.add_css_class("launcher-header-title");
 
         let subtitle = Label::new(Some(&self.config.header.subtitle));
         subtitle.set_halign(Align::Start);
         subtitle.set_xalign(0.0);
         subtitle.set_wrap(true);
+        subtitle.add_css_class("launcher-header-subtitle");
 
         text_column.set_hexpand(true);
         text_column.append(&title);
@@ -178,6 +186,7 @@ impl LauncherWindow {
 
     fn build_header_action_button(&self, button: &ButtonConfig) -> Button {
         let widget = Button::with_label(&button.label);
+        widget.add_css_class("launcher-header-action-button");
         widget.set_tooltip_text(Some(&Self::button_tooltip(button)));
         widget
     }
@@ -186,12 +195,15 @@ impl LauncherWindow {
         let container = GtkBox::new(Orientation::Vertical, 4);
         let label = Label::new(Some(&stat.label));
         let value = Label::new(Some(&stat.value));
+        container.add_css_class("launcher-header-stat");
+        label.add_css_class("launcher-header-stat-label");
 
         label.set_halign(Align::Start);
         label.set_xalign(0.0);
         value.set_halign(Align::Start);
         value.set_xalign(0.0);
         value.add_css_class("title-4");
+        value.add_css_class("launcher-header-stat-value");
 
         container.set_hexpand(true);
         container.append(&label);
@@ -205,6 +217,7 @@ impl LauncherWindow {
             .vexpand(true)
             .hscrollbar_policy(gtk4::PolicyType::Never)
             .build();
+        scroller.add_css_class("launcher-grid-scroller");
 
         let grid = Grid::new();
         let spacing = self.config.grid.spacing.max(0) as u32;
@@ -260,6 +273,7 @@ impl LauncherWindow {
         title.set_wrap(true);
         title.set_justify(gtk4::Justification::Center);
         title.set_max_width_chars(10);
+        title.add_css_class("menu-tile-label");
 
         content.append(&icon);
         content.append(&title);

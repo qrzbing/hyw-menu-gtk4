@@ -2,6 +2,7 @@ mod app;
 mod cli;
 mod config;
 mod hyprland;
+mod style;
 
 use app::LauncherApp;
 use clap::Parser;
