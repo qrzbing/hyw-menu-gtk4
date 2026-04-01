@@ -1,3 +1,8 @@
+use std::path::{Path, PathBuf};
+use std::{env, fmt, fs};
+
+use serde::Deserialize;
+
 #[derive(Debug, Clone)]
 pub struct LauncherConfig {
     pub application_id: String,
@@ -65,6 +70,153 @@ pub enum MenuAction {
     LaunchCommand(String),
 }
 
+#[derive(Debug)]
+pub enum ConfigError {
+    Read {
+        path: PathBuf,
+        source: std::io::Error,
+    },
+    Parse {
+        path: PathBuf,
+        source: toml::de::Error,
+    },
+}
+
+impl fmt::Display for ConfigError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Read { path, source } => {
+                write!(f, "failed to read config {}: {source}", path.display())
+            }
+            Self::Parse { path, source } => {
+                write!(f, "failed to parse config {}: {source}", path.display())
+            }
+        }
+    }
+}
+
+impl std::error::Error for ConfigError {}
+
+#[derive(Debug, Deserialize, Default)]
+struct LauncherFileConfig {
+    #[serde(default)]
+    sidebar: SidebarFileConfig,
+    #[serde(default)]
+    grid: GridFileConfig,
+}
+
+#[derive(Debug, Deserialize, Default)]
+struct SidebarFileConfig {
+    #[serde(default)]
+    buttons: Vec<String>,
+}
+
+#[derive(Debug, Deserialize, Default)]
+struct GridFileConfig {
+    #[serde(default)]
+    cards: Vec<String>,
+}
+
+impl LauncherConfig {
+    pub fn load(config_path: Option<PathBuf>) -> Result<Self, ConfigError> {
+        let mut config = Self::default();
+
+        let resolved_path = match config_path {
+            Some(path) => Some(path),
+            None => default_config_path().filter(|path| path.exists()),
+        };
+
+        let Some(path) = resolved_path else {
+            return Ok(config);
+        };
+
+        let file_config = LauncherFileConfig::from_path(&path)?;
+        config.apply_file_config(file_config);
+        Ok(config)
+    }
+
+    fn apply_file_config(&mut self, file_config: LauncherFileConfig) {
+        if !file_config.sidebar.buttons.is_empty() {
+            self.sidebar.buttons = file_config
+                .sidebar
+                .buttons
+                .into_iter()
+                .map(|label| sidebar_button_config(&label))
+                .collect();
+        }
+
+        if !file_config.grid.cards.is_empty() {
+            self.grid.buttons = file_config
+                .grid
+                .cards
+                .into_iter()
+                .map(|label| grid_button_config(&label))
+                .collect();
+        }
+    }
+}
+
+impl LauncherFileConfig {
+    fn from_path(path: &Path) -> Result<Self, ConfigError> {
+        let content = fs::read_to_string(path).map_err(|source| ConfigError::Read {
+            path: path.to_path_buf(),
+            source,
+        })?;
+
+        toml::from_str(&content).map_err(|source| ConfigError::Parse {
+            path: path.to_path_buf(),
+            source,
+        })
+    }
+}
+
+fn default_config_path() -> Option<PathBuf> {
+    let config_home = env::var_os("XDG_CONFIG_HOME")
+        .map(PathBuf::from)
+        .or_else(|| env::var_os("HOME").map(|home| PathBuf::from(home).join(".config")))?;
+
+    Some(config_home.join("hyw-menu-gtk4").join("config.toml"))
+}
+
+fn sidebar_button_config(label: &str) -> ButtonConfig {
+    let id = slugify(label);
+
+    ButtonConfig {
+        id: id.clone(),
+        label: label.to_string(),
+        icon_name: None,
+        action: MenuAction::OpenSection(id),
+    }
+}
+
+fn grid_button_config(label: &str) -> ButtonConfig {
+    let id = slugify(label);
+
+    ButtonConfig {
+        id: id.clone(),
+        label: label.to_string(),
+        icon_name: None,
+        action: MenuAction::OpenSection(id),
+    }
+}
+
+fn slugify(input: &str) -> String {
+    let mut slug = String::with_capacity(input.len());
+    let mut last_was_dash = false;
+
+    for ch in input.chars() {
+        if ch.is_ascii_alphanumeric() {
+            slug.push(ch.to_ascii_lowercase());
+            last_was_dash = false;
+        } else if !last_was_dash {
+            slug.push('-');
+            last_was_dash = true;
+        }
+    }
+
+    slug.trim_matches('-').to_string()
+}
+
 impl Default for LauncherConfig {
     fn default() -> Self {
         Self {
@@ -111,7 +263,8 @@ impl Default for LauncherConfig {
                 outer_margin: 24,
                 title: "Start Menu".to_string(),
                 subtitle:
-                    "Game-style header placeholder. This area can later map to profile, greeting, and system status.".to_string(),
+                    "Game-style header placeholder. This area can later map to profile, greeting, and system status."
+                        .to_string(),
                 stats: vec![
                     HeaderStatConfig {
                         label: "Recent Apps".to_string(),
@@ -136,7 +289,9 @@ impl Default for LauncherConfig {
                     ButtonConfig {
                         id: "notify".to_string(),
                         label: "Alerts".to_string(),
-                        icon_name: Some("preferences-system-notifications-symbolic".to_string()),
+                        icon_name: Some(
+                            "preferences-system-notifications-symbolic".to_string(),
+                        ),
                         action: MenuAction::None,
                     },
                 ],
@@ -154,5 +309,20 @@ impl Default for LauncherConfig {
                 }],
             },
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::slugify;
+
+    #[test]
+    fn slugifies_ascii_labels() {
+        assert_eq!(slugify("My Card"), "my-card");
+    }
+
+    #[test]
+    fn collapses_separator_runs() {
+        assert_eq!(slugify("A  /  B"), "a-b");
     }
 }

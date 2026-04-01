@@ -43,7 +43,7 @@ impl LauncherApp {
             launcher_window.present();
         });
 
-        app.run();
+        app.run_with_args::<&str>(&[]);
     }
 }
 
