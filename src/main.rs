@@ -1,18 +1,77 @@
+use std::env;
+use std::sync::Arc;
+
 use gtk4::gdk::{self, Display};
 use gtk4::glib::Propagation;
 use gtk4::glib::object::Cast as _;
 use gtk4::prelude::*;
 use gtk4::{Application, ApplicationWindow, EventControllerKey};
 use gtk4_layer_shell::{Edge, KeyboardMode, Layer, LayerShell};
+use tokio::runtime::{Builder, Runtime};
+use wayle_hyprland::HyprlandService;
 
 const APP_ID: &str = "com.qrzbing.hyw-menu-gtk4";
 const WINDOW_TITLE: &str = "hyw-menu";
 const MIN_WIDTH: i32 = 320;
 
-fn primary_monitor(display: &Display) -> Option<gdk::Monitor> {
+struct HyprlandContext {
+    _runtime: Arc<Runtime>,
+    service: Arc<HyprlandService>,
+}
+
+fn all_monitors(display: &Display) -> Vec<gdk::Monitor> {
     let monitors = display.monitors();
-    let obj = monitors.item(0)?;
-    obj.downcast::<gdk::Monitor>().ok()
+
+    (0..monitors.n_items())
+        .filter_map(|index| monitors.item(index))
+        .filter_map(|obj| obj.downcast::<gdk::Monitor>().ok())
+        .collect()
+}
+
+fn first_monitor(display: &Display) -> Option<gdk::Monitor> {
+    all_monitors(display).into_iter().next()
+}
+
+fn init_hyprland_context() -> Option<HyprlandContext> {
+    if env::var_os("HYPRLAND_INSTANCE_SIGNATURE").is_none() {
+        return None;
+    }
+
+    let runtime = Builder::new_multi_thread().enable_all().build().ok()?;
+    let service = runtime.block_on(HyprlandService::new()).ok()?;
+
+    Some(HyprlandContext {
+        _runtime: Arc::new(runtime),
+        service,
+    })
+}
+
+fn hyprland_focused_monitor_name(service: &HyprlandService) -> Option<String> {
+    service
+        .monitors
+        .get()
+        .into_iter()
+        .find(|monitor| monitor.focused.get())
+        .map(|monitor| monitor.name.get())
+}
+
+fn monitor_by_connector(display: &Display, connector: &str) -> Option<gdk::Monitor> {
+    all_monitors(display)
+        .into_iter()
+        .find(|monitor| monitor.connector().as_deref() == Some(connector))
+}
+
+fn preferred_monitor(
+    display: &Display,
+    hyprland: Option<&HyprlandContext>,
+) -> Option<gdk::Monitor> {
+    if let Some(name) = hyprland.and_then(|ctx| hyprland_focused_monitor_name(&ctx.service)) {
+        if let Some(monitor) = monitor_by_connector(display, &name) {
+            return Some(monitor);
+        }
+    }
+
+    first_monitor(display)
 }
 
 fn quarter_monitor_width(monitor: &gdk::Monitor) -> i32 {
@@ -71,11 +130,12 @@ fn install_keybindings(window: &ApplicationWindow) {
 }
 
 fn main() {
+    let hyprland = init_hyprland_context();
     let app = Application::builder().application_id(APP_ID).build();
 
-    app.connect_activate(|app| {
+    app.connect_activate(move |app| {
         let display = Display::default().expect("No display available");
-        let monitor = primary_monitor(&display).expect("No monitor available");
+        let monitor = preferred_monitor(&display, hyprland.as_ref()).expect("No monitor available");
 
         let window = build_window(app, &monitor);
         configure_layer_shell(&window, &monitor);
