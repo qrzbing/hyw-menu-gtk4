@@ -1,7 +1,7 @@
 use gtk4::gdk::{self, Display};
-use gtk4::glib::object::Cast as _;
+use gtk4::glib::{Propagation, object::Cast as _};
 use gtk4::prelude::*;
-use gtk4::{Application, ApplicationWindow};
+use gtk4::{Application, ApplicationWindow, EventControllerKey};
 use gtk4_layer_shell::{Edge, KeyboardMode, Layer, LayerShell};
 
 fn primary_monitor(display: &Display) -> Option<gdk::Monitor> {
@@ -34,7 +34,7 @@ fn main() {
         window.init_layer_shell();
         window.set_namespace(Some("hyw-menu"));
         window.set_layer(Layer::Overlay);
-        window.set_keyboard_mode(KeyboardMode::OnDemand);
+        window.set_keyboard_mode(KeyboardMode::Exclusive);
         window.set_monitor(Some(&monitor));
 
         window.set_anchor(Edge::Left, true);
@@ -50,6 +50,18 @@ fn main() {
         // Do not reserve screen space: this window should overlay other apps
         // instead of affecting the compositor's tiling layout.
         window.set_exclusive_zone(0);
+
+        let key_controller = EventControllerKey::new();
+        let window_for_keys = window.clone();
+        key_controller.connect_key_pressed(move |_, key, _, _| {
+            if key == gdk::Key::Escape {
+                window_for_keys.close();
+                Propagation::Stop
+            } else {
+                Propagation::Proceed
+            }
+        });
+        window.add_controller(key_controller);
 
         window.present();
     });
