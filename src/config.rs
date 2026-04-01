@@ -3,7 +3,8 @@ pub struct LauncherConfig {
     pub application_id: String,
     pub window: WindowConfig,
     pub sidebar: SidebarConfig,
-    pub main_panel: MainPanelConfig,
+    pub header: HeaderBannerConfig,
+    pub grid: GridSectionConfig,
 }
 
 #[derive(Debug, Clone)]
@@ -23,11 +24,28 @@ pub struct SidebarConfig {
 }
 
 #[derive(Debug, Clone)]
-pub struct MainPanelConfig {
+pub struct HeaderBannerConfig {
     pub spacing: i32,
     pub outer_margin: i32,
     pub title: String,
-    pub description: String,
+    pub subtitle: String,
+    pub stats: Vec<HeaderStatConfig>,
+    pub action_buttons: Vec<ButtonConfig>,
+}
+
+#[derive(Debug, Clone)]
+pub struct HeaderStatConfig {
+    pub label: String,
+    pub value: String,
+}
+
+#[derive(Debug, Clone)]
+pub struct GridSectionConfig {
+    pub spacing: i32,
+    pub columns: i32,
+    pub tile_width: i32,
+    pub tile_height: i32,
+    pub buttons: Vec<ButtonConfig>,
 }
 
 #[derive(Debug, Clone)]
@@ -70,7 +88,7 @@ impl Default for LauncherConfig {
                     },
                     ButtonConfig {
                         id: "favorites".to_string(),
-                        label: "Fav".to_string(),
+                        label: "Favorites".to_string(),
                         icon_name: Some("starred-symbolic".to_string()),
                         action: MenuAction::OpenSection("favorites".to_string()),
                     },
@@ -88,11 +106,52 @@ impl Default for LauncherConfig {
                     },
                 ],
             },
-            main_panel: MainPanelConfig {
-                spacing: 16,
+            header: HeaderBannerConfig {
+                spacing: 14,
                 outer_margin: 24,
-                title: "Start".to_string(),
-                description: "Description".to_string(),
+                title: "Start Menu".to_string(),
+                subtitle:
+                    "Game-style header placeholder. This area can later map to profile, greeting, and system status.".to_string(),
+                stats: vec![
+                    HeaderStatConfig {
+                        label: "Recent Apps".to_string(),
+                        value: "12".to_string(),
+                    },
+                    HeaderStatConfig {
+                        label: "Favorites".to_string(),
+                        value: "8".to_string(),
+                    },
+                    HeaderStatConfig {
+                        label: "System Status".to_string(),
+                        value: "Normal".to_string(),
+                    },
+                ],
+                action_buttons: vec![
+                    ButtonConfig {
+                        id: "edit".to_string(),
+                        label: "Edit".to_string(),
+                        icon_name: Some("document-edit-symbolic".to_string()),
+                        action: MenuAction::None,
+                    },
+                    ButtonConfig {
+                        id: "notify".to_string(),
+                        label: "Alerts".to_string(),
+                        icon_name: Some("preferences-system-notifications-symbolic".to_string()),
+                        action: MenuAction::None,
+                    },
+                ],
+            },
+            grid: GridSectionConfig {
+                spacing: 12,
+                columns: 4,
+                tile_width: 120,
+                tile_height: 96,
+                buttons: vec![ButtonConfig {
+                    id: "applications".to_string(),
+                    label: "Applications".to_string(),
+                    icon_name: Some("view-app-grid-symbolic".to_string()),
+                    action: MenuAction::OpenSection("applications".to_string()),
+                }],
             },
         }
     }
