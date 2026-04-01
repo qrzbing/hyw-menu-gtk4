@@ -25,11 +25,15 @@ pub struct SidebarConfig {
     pub spacing: i32,
     pub outer_margin: i32,
     pub inner_margin: i32,
+    pub middle_offset: i32,
+    pub top_button: ButtonConfig,
     pub buttons: Vec<ButtonConfig>,
+    pub bottom_button: ButtonConfig,
 }
 
 #[derive(Debug, Clone)]
 pub struct HeaderBannerConfig {
+    pub height: i32,
     pub spacing: i32,
     pub outer_margin: i32,
     pub title: String,
@@ -231,6 +235,13 @@ impl Default for LauncherConfig {
                 spacing: 12,
                 outer_margin: 24,
                 inner_margin: 16,
+                middle_offset: 40,
+                top_button: ButtonConfig {
+                    id: "close-menu".to_string(),
+                    label: "Close".to_string(),
+                    icon_name: Some("window-close-symbolic".to_string()),
+                    action: MenuAction::CloseMenu,
+                },
                 buttons: vec![
                     ButtonConfig {
                         id: "all".to_string(),
@@ -257,8 +268,15 @@ impl Default for LauncherConfig {
                         action: MenuAction::OpenSection("system".to_string()),
                     },
                 ],
+                bottom_button: ButtonConfig {
+                    id: "power".to_string(),
+                    label: "Power".to_string(),
+                    icon_name: Some("system-shutdown-symbolic".to_string()),
+                    action: MenuAction::None,
+                },
             },
             header: HeaderBannerConfig {
+                height: 212,
                 spacing: 14,
                 outer_margin: 24,
                 title: "Start Menu".to_string(),

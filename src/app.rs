@@ -93,7 +93,7 @@ impl LauncherWindow {
     }
 
     fn build_sidebar_nav(&self) -> GtkBox {
-        let sidebar = GtkBox::new(Orientation::Vertical, self.config.sidebar.spacing);
+        let sidebar = GtkBox::new(Orientation::Vertical, 0);
         sidebar.add_css_class("launcher-sidebar");
         sidebar.set_width_request(self.config.window.sidebar_width);
         sidebar.set_margin_top(self.config.sidebar.outer_margin);
@@ -101,19 +101,61 @@ impl LauncherWindow {
         sidebar.set_margin_start(self.config.sidebar.inner_margin);
         sidebar.set_margin_end(self.config.sidebar.inner_margin);
         sidebar.set_valign(Align::Fill);
+        sidebar.set_vexpand(true);
 
+        let top_section = GtkBox::new(Orientation::Vertical, 0);
+        top_section.add_css_class("launcher-sidebar-top");
+        top_section.append(&self.build_sidebar_button(
+            &self.config.sidebar.top_button,
+            "launcher-sidebar-fixed-button",
+            Self::sidebar_fixed_button_height(),
+        ));
+
+        let middle_section = GtkBox::new(Orientation::Vertical, self.config.sidebar.spacing);
+        middle_section.add_css_class("launcher-sidebar-middle");
         for button in &self.config.sidebar.buttons {
-            sidebar.append(&self.build_sidebar_button(button));
+            middle_section.append(&self.build_sidebar_button(
+                button,
+                "launcher-sidebar-menu-button",
+                Self::sidebar_menu_button_height(),
+            ));
         }
 
+        let align_spacer = GtkBox::new(Orientation::Vertical, 0);
+        align_spacer.set_height_request(self.sidebar_middle_spacer_height());
+
+        let bottom_spacer = GtkBox::new(Orientation::Vertical, 0);
+        bottom_spacer.set_vexpand(true);
+
+        let bottom_section = GtkBox::new(Orientation::Vertical, 0);
+        bottom_section.add_css_class("launcher-sidebar-bottom");
+        bottom_section.append(&self.build_sidebar_button(
+            &self.config.sidebar.bottom_button,
+            "launcher-sidebar-fixed-button",
+            Self::sidebar_fixed_button_height(),
+        ));
+
+        sidebar.append(&top_section);
+        sidebar.append(&align_spacer);
+        sidebar.append(&middle_section);
+        sidebar.append(&bottom_spacer);
+        sidebar.append(&bottom_section);
         sidebar
     }
 
-    fn build_sidebar_button(&self, button: &ButtonConfig) -> Button {
+    fn build_sidebar_button(
+        &self,
+        button: &ButtonConfig,
+        variant_class: &str,
+        height: i32,
+    ) -> Button {
         let widget = Button::with_label(&button.label);
         widget.add_css_class("launcher-sidebar-button");
+        widget.add_css_class(variant_class);
         widget.set_hexpand(true);
+        widget.set_height_request(height);
         widget.set_tooltip_text(Some(&Self::button_tooltip(button)));
+        self.bind_button_action(&widget, button);
         widget
     }
 
@@ -135,6 +177,7 @@ impl LauncherWindow {
     fn build_header_banner(&self) -> GtkBox {
         let banner = GtkBox::new(Orientation::Vertical, self.config.header.spacing);
         banner.set_hexpand(true);
+        banner.set_height_request(self.config.header.height);
         banner.add_css_class("launcher-header-banner");
 
         let top_row = GtkBox::new(Orientation::Horizontal, self.config.header.spacing);
@@ -188,6 +231,7 @@ impl LauncherWindow {
         let widget = Button::with_label(&button.label);
         widget.add_css_class("launcher-header-action-button");
         widget.set_tooltip_text(Some(&Self::button_tooltip(button)));
+        self.bind_button_action(&widget, button);
         widget
     }
 
@@ -259,6 +303,7 @@ impl LauncherWindow {
         widget.set_vexpand(false);
         widget.set_tooltip_text(Some(&Self::button_tooltip(button)));
         widget.add_css_class("menu-tile-button");
+        self.bind_button_action(&widget, button);
 
         content.set_valign(Align::Center);
         content.set_halign(Align::Center);
@@ -279,6 +324,30 @@ impl LauncherWindow {
         content.append(&title);
         widget.set_child(Some(&content));
         widget
+    }
+
+    fn bind_button_action(&self, widget: &Button, button: &ButtonConfig) {
+        let action = button.action.clone();
+        let window = self.window.clone();
+
+        widget.connect_clicked(move |_| match &action {
+            MenuAction::CloseMenu => window.close(),
+            MenuAction::None | MenuAction::OpenSection(_) | MenuAction::LaunchCommand(_) => {}
+        });
+    }
+
+    fn sidebar_fixed_button_height() -> i32 {
+        62
+    }
+
+    fn sidebar_menu_button_height() -> i32 {
+        52
+    }
+
+    fn sidebar_middle_spacer_height(&self) -> i32 {
+        (self.config.header.height + self.config.grid.spacing - Self::sidebar_fixed_button_height()
+            + self.config.sidebar.middle_offset)
+            .max(0)
     }
 
     fn configure_layer_shell(&self, monitor: &gdk::Monitor) {
