@@ -34,7 +34,6 @@ pub struct SidebarConfig {
     button_bg_opacity: f32,
     spacing: i32,
     outer_margin: i32,
-    inner_margin: i32,
     middle_offset: i32,
     top_button: ButtonConfig,
     buttons: Vec<ButtonConfig>,
@@ -59,7 +58,6 @@ pub(crate) struct SidebarSizing {
 pub(crate) struct SidebarSpacing {
     spacing: i32,
     outer_margin: i32,
-    inner_margin: i32,
     middle_offset: i32,
 }
 
@@ -328,7 +326,6 @@ impl SidebarConfig {
             button_bg_opacity: metrics.sizing.button_bg_opacity,
             spacing: metrics.spacing.spacing,
             outer_margin: metrics.spacing.outer_margin,
-            inner_margin: metrics.spacing.inner_margin,
             middle_offset: metrics.spacing.middle_offset,
             top_button,
             buttons,
@@ -358,10 +355,6 @@ impl SidebarConfig {
 
     pub fn outer_margin(&self) -> i32 {
         self.outer_margin
-    }
-
-    pub fn inner_margin(&self) -> i32 {
-        self.inner_margin
     }
 
     pub fn middle_offset(&self) -> i32 {
@@ -427,16 +420,10 @@ impl SidebarSizing {
 }
 
 impl SidebarSpacing {
-    pub(crate) fn new(
-        spacing: i32,
-        outer_margin: i32,
-        inner_margin: i32,
-        middle_offset: i32,
-    ) -> Self {
+    pub(crate) fn new(spacing: i32, outer_margin: i32, middle_offset: i32) -> Self {
         Self {
             spacing,
             outer_margin,
-            inner_margin,
             middle_offset,
         }
     }

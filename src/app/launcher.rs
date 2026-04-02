@@ -158,13 +158,12 @@ impl LauncherWindow {
         let sidebar_width = ((config.sidebar().width() as f32) * config.sidebar().scale())
             .round()
             .max(56.0) as i32;
-        let sidebar_margins = config.sidebar().inner_margin() * 2;
         let panel_margins = 8 + config.top_panels().outer_margin();
         let columns = config.grid().columns().max(1);
         let grid_width =
             (config.grid().tile_size() * columns) + (config.grid().spacing() * (columns - 1));
 
-        sidebar_width + sidebar_margins + panel_margins + grid_width + 24
+        sidebar_width + panel_margins + grid_width + 24
     }
 
     fn visible_top_panels_height(&self) -> i32 {

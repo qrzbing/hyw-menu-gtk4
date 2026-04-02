@@ -5,7 +5,7 @@
 
 .launcher-sidebar {
   padding: 18px 10px;
-  border-radius: 28px;
+  border-radius: 0;
   background: linear-gradient(180deg, #4c5f76 0%, #3e4d61 100%);
   border: 1px solid rgba(247, 232, 206, 0.2);
 }
@@ -22,7 +22,7 @@
   min-width: 0;
   min-height: 0;
   padding: 0;
-  border-radius: 18px;
+  border-radius: 0;
   background: rgba(255, 248, 235, 0.04);
   color: #efe4cf;
   border: 1px solid rgba(255, 245, 226, 0.06);
@@ -30,13 +30,13 @@
 }
 
 .launcher-sidebar-fixed-button {
-  border-radius: 20px;
+  border-radius: 0;
   background: rgba(255, 248, 235, 0.12);
   border-color: rgba(255, 239, 214, 0.16);
 }
 
 .launcher-sidebar-menu-button {
-  border-radius: 16px;
+  border-radius: 0;
   background: rgba(255, 248, 235, 0.08);
 }
 
@@ -74,7 +74,7 @@
 .launcher-top-banner {
   margin-bottom: 4px;
   padding: 18px 22px;
-  border-radius: 28px;
+  border-radius: 0;
   background-image: linear-gradient(135deg, rgba(143, 101, 95, 0.96) 0%, rgba(184, 119, 91, 0.95) 52%, rgba(213, 154, 97, 0.93) 100%);
   border: 1px solid rgba(255, 239, 214, 0.22);
 }
@@ -97,7 +97,7 @@
 
 .launcher-top-panel {
   padding: 14px 16px;
-  border-radius: 22px;
+  border-radius: 0;
   border: 1px solid rgba(255, 240, 213, 0.14);
 }
 
@@ -200,13 +200,13 @@
 
 .launcher-profile-progress-bar trough {
   min-height: 10px;
-  border-radius: 999px;
+  border-radius: 0;
   background: rgba(77, 55, 47, 0.35);
 }
 
 .launcher-profile-progress-bar progress {
   min-height: 10px;
-  border-radius: 999px;
+  border-radius: 0;
   background: linear-gradient(90deg, #8fd16f 0%, #d6f188 100%);
 }
 
@@ -227,7 +227,7 @@
 
 .launcher-text-panel-badge {
   padding: 4px 10px;
-  border-radius: 999px;
+  border-radius: 0;
   background: rgba(76, 51, 50, 0.18);
   color: rgba(255, 246, 231, 0.94);
   font-size: 12px;
@@ -274,7 +274,7 @@
 .launcher-search-entry {
   min-height: 44px;
   padding: 0 14px;
-  border-radius: 18px;
+  border-radius: 0;
   background: rgba(255, 251, 245, 0.96);
   color: #47342f;
   border: 1px solid rgba(157, 124, 92, 0.16);
@@ -286,7 +286,7 @@
 
 .launcher-grid-scroller {
   padding: 4px 2px 4px 0;
-  border-radius: 28px;
+  border-radius: 0;
   background: rgba(249, 241, 228, 0.72);
 }
 
@@ -303,7 +303,7 @@
 }
 
 .launcher-empty-state {
-  border-radius: 22px;
+  border-radius: 0;
   background: rgba(250, 242, 229, 0.82);
   border: 1px solid rgba(157, 124, 92, 0.1);
 }
@@ -316,7 +316,7 @@
 
 .launcher-page-intro {
   padding: 16px 18px;
-  border-radius: 22px;
+  border-radius: 0;
   background: rgba(255, 248, 235, 0.82);
   border: 1px solid rgba(147, 109, 87, 0.12);
 }
@@ -335,7 +335,7 @@
 
 .launcher-page-badge {
   padding: 6px 12px;
-  border-radius: 999px;
+  border-radius: 0;
   background: rgba(84, 105, 125, 0.12);
   color: #5d6d82;
   font-size: 12px;
@@ -344,7 +344,7 @@
 
 .launcher-apps-scroller {
   padding: 6px 2px 6px 0;
-  border-radius: 22px;
+  border-radius: 0;
   background: rgba(250, 242, 229, 0.82);
   border: 1px solid rgba(157, 124, 92, 0.1);
 }
@@ -355,7 +355,7 @@
 
 .launcher-app-tile {
   padding: 8px 6px;
-  border-radius: 10px;
+  border-radius: 0;
   background: linear-gradient(180deg, #5f6f84 0%, #55657a 100%);
   color: #f2eadc;
   border: 1px solid rgba(247, 235, 212, 0.08);
@@ -388,7 +388,7 @@
 
 .menu-tile-button {
   padding: 10px;
-  border-radius: 20px;
+  border-radius: 0;
   background: linear-gradient(180deg, #5d6d82 0%, #556379 100%);
   color: #f4ecdd;
   border: 1px solid rgba(250, 241, 225, 0.1);

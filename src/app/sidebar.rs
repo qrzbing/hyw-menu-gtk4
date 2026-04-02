@@ -12,7 +12,7 @@ impl LauncherWindow {
         sidebar.set_width_request(self.sidebar_width());
         sidebar.set_margin_top(self.config().sidebar().outer_margin());
         sidebar.set_margin_bottom(self.config().sidebar().outer_margin());
-        sidebar.set_margin_start(self.config().sidebar().inner_margin());
+        sidebar.set_margin_start(0);
         sidebar.set_margin_end(0);
         sidebar.set_valign(Align::Fill);
         sidebar.set_vexpand(true);

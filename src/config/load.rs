@@ -162,7 +162,7 @@ impl Default for LauncherConfig {
             SidebarConfig::new(
                 SidebarMetrics::new(
                     SidebarSizing::new(96, 1.0, 0.82, 1.0),
-                    SidebarSpacing::new(12, 24, 16, 40),
+                    SidebarSpacing::new(12, 0, 40),
                 ),
                 ButtonConfig::new(
                     "close-menu".to_owned(),
