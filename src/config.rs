@@ -6,6 +6,7 @@ use serde::Deserialize;
 #[derive(Debug, Clone)]
 pub struct LauncherConfig {
     pub application_id: String,
+    pub quick_access_path: PathBuf,
     pub window: WindowConfig,
     pub sidebar: SidebarConfig,
     pub header: HeaderBannerConfig,
@@ -168,6 +169,8 @@ struct ButtonFileConfig {
 impl LauncherConfig {
     pub fn load(config_path: Option<PathBuf>) -> Result<Self, ConfigError> {
         let mut config = Self::default();
+        let config_dir = config_root_dir(config_path.as_deref());
+        config.quick_access_path = config_dir.join("quick-access.toml");
 
         let resolved_path = match config_path {
             Some(path) => Some(path),
@@ -260,11 +263,22 @@ impl LauncherFileConfig {
 }
 
 fn default_config_path() -> Option<PathBuf> {
-    let config_home = env::var_os("XDG_CONFIG_HOME")
-        .map(PathBuf::from)
-        .or_else(|| env::var_os("HOME").map(|home| PathBuf::from(home).join(".config")))?;
+    Some(default_config_dir().join("config.toml"))
+}
 
-    Some(config_home.join("hyw-menu-gtk4").join("config.toml"))
+fn default_config_dir() -> PathBuf {
+    env::var_os("XDG_CONFIG_HOME")
+        .map(PathBuf::from)
+        .or_else(|| env::var_os("HOME").map(|home| PathBuf::from(home).join(".config")))
+        .unwrap_or_else(|| PathBuf::from("."))
+        .join("hyw-menu-gtk4")
+}
+
+fn config_root_dir(config_path: Option<&Path>) -> PathBuf {
+    config_path
+        .and_then(Path::parent)
+        .map(Path::to_path_buf)
+        .unwrap_or_else(default_config_dir)
 }
 
 fn sidebar_button_config(label: &str) -> ButtonConfig {
@@ -427,6 +441,7 @@ impl Default for LauncherConfig {
     fn default() -> Self {
         Self {
             application_id: "com.qrzbing.hyw-menu-gtk4".to_string(),
+            quick_access_path: default_config_dir().join("quick-access.toml"),
             window: WindowConfig {
                 title: "hyw-menu".to_string(),
                 namespace: "hyw-menu".to_string(),

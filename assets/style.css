@@ -146,6 +146,22 @@
   padding-top: 4px;
 }
 
+.launcher-home-page {
+  padding-top: 4px;
+}
+
+.launcher-empty-state {
+  border-radius: 22px;
+  background: rgba(250, 242, 229, 0.82);
+  border: 1px solid rgba(157, 124, 92, 0.1);
+}
+
+.launcher-empty-state-label {
+  color: rgba(76, 61, 53, 0.86);
+  font-size: 18px;
+  font-weight: 700;
+}
+
 .launcher-page-intro {
   padding: 16px 18px;
   border-radius: 22px;

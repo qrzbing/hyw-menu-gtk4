@@ -1,4 +1,7 @@
 use std::cell::RefCell;
+use std::collections::HashMap;
+use std::fs;
+use std::path::PathBuf;
 use std::rc::Rc;
 use std::sync::Arc;
 
@@ -8,13 +11,13 @@ use gtk4::glib::Propagation;
 use gtk4::prelude::*;
 use gtk4::{
     Align, Application, ApplicationWindow, Box as GtkBox, Button, ContentFit, EventControllerKey,
-    Grid, Image, Label, Orientation, Picture, ScrolledWindow, Stack, StackTransitionType, Widget,
+    GestureClick, Grid, Image, Label, Orientation, Picture, ScrolledWindow, Stack,
+    StackTransitionType, Widget,
 };
 use gtk4_layer_shell::{Edge, KeyboardMode, Layer, LayerShell};
+use serde::{Deserialize, Serialize};
 
-use crate::config::{
-    ButtonConfig, GridSectionConfig, HeaderStatConfig, LauncherConfig, MenuAction,
-};
+use crate::config::{ButtonConfig, HeaderStatConfig, LauncherConfig, MenuAction};
 use crate::hyprland::{HyprlandContext, preferred_monitor};
 use crate::style::install_global_css;
 
@@ -24,6 +27,247 @@ struct DesktopAppEntry {
     id: String,
     name: String,
     description: Option<String>,
+}
+
+#[derive(Clone)]
+struct DesktopAppCatalog {
+    ordered: Rc<Vec<DesktopAppEntry>>,
+    by_id: Rc<HashMap<String, DesktopAppEntry>>,
+}
+
+#[derive(Debug, Default, Serialize, Deserialize)]
+struct QuickAccessFile {
+    #[serde(default)]
+    apps: Vec<String>,
+}
+
+#[derive(Clone)]
+struct QuickAccessState {
+    path: PathBuf,
+    catalog: DesktopAppCatalog,
+    config: Arc<LauncherConfig>,
+    window: ApplicationWindow,
+    app_ids: Rc<RefCell<Vec<String>>>,
+    container: Rc<RefCell<Option<GtkBox>>>,
+}
+
+impl DesktopAppCatalog {
+    fn new(apps: Vec<DesktopAppEntry>) -> Self {
+        let by_id = apps
+            .iter()
+            .cloned()
+            .map(|app| (app.id.clone(), app))
+            .collect::<HashMap<_, _>>();
+
+        Self {
+            ordered: Rc::new(apps),
+            by_id: Rc::new(by_id),
+        }
+    }
+
+    fn get(&self, app_id: &str) -> Option<&DesktopAppEntry> {
+        self.by_id.get(app_id)
+    }
+}
+
+impl QuickAccessState {
+    fn new(
+        path: PathBuf,
+        catalog: DesktopAppCatalog,
+        config: Arc<LauncherConfig>,
+        window: &ApplicationWindow,
+    ) -> Self {
+        let app_ids = Self::load_ids(&path, &catalog);
+
+        Self {
+            path,
+            catalog,
+            config,
+            window: window.clone(),
+            app_ids: Rc::new(RefCell::new(app_ids)),
+            container: Rc::new(RefCell::new(None)),
+        }
+    }
+
+    fn build_home_page(&self) -> GtkBox {
+        let page = GtkBox::new(Orientation::Vertical, 0);
+        page.add_css_class("launcher-page");
+        page.add_css_class("launcher-home-page");
+        page.set_hexpand(true);
+        page.set_vexpand(true);
+
+        let container = GtkBox::new(Orientation::Vertical, 0);
+        container.set_hexpand(true);
+        container.set_vexpand(true);
+
+        *self.container.borrow_mut() = Some(container.clone());
+        self.refresh();
+
+        page.append(&container);
+        page
+    }
+
+    fn add_app(&self, app_id: &str) {
+        if self.catalog.get(app_id).is_none() {
+            return;
+        }
+
+        let mut app_ids = self.app_ids.borrow_mut();
+        if app_ids.iter().any(|existing| existing == app_id) {
+            return;
+        }
+
+        app_ids.push(app_id.to_string());
+        if let Err(error) = self.save_ids(&app_ids) {
+            eprintln!("Failed to save quick access: {error}");
+        }
+        drop(app_ids);
+        self.refresh();
+    }
+
+    fn remove_app(&self, app_id: &str) {
+        let mut app_ids = self.app_ids.borrow_mut();
+        let original_len = app_ids.len();
+        app_ids.retain(|existing| existing != app_id);
+
+        if app_ids.len() == original_len {
+            return;
+        }
+
+        if let Err(error) = self.save_ids(&app_ids) {
+            eprintln!("Failed to save quick access: {error}");
+        }
+        drop(app_ids);
+        self.refresh();
+    }
+
+    fn refresh(&self) {
+        let Some(container) = self.container.borrow().clone() else {
+            return;
+        };
+
+        while let Some(child) = container.first_child() {
+            container.remove(&child);
+        }
+
+        if self.app_ids.borrow().is_empty() {
+            container.append(&self.build_empty_state());
+        } else {
+            container.append(&self.build_scroller());
+        }
+    }
+
+    fn build_empty_state(&self) -> GtkBox {
+        let box_ = GtkBox::new(Orientation::Vertical, 0);
+        let label = Label::new(Some("Right-click apps in All Apps to add them here"));
+
+        box_.add_css_class("launcher-empty-state");
+        box_.set_hexpand(true);
+        box_.set_vexpand(true);
+        box_.set_halign(Align::Fill);
+        box_.set_valign(Align::Fill);
+
+        label.add_css_class("launcher-empty-state-label");
+        label.set_wrap(true);
+        label.set_justify(gtk4::Justification::Center);
+        label.set_halign(Align::Center);
+        label.set_valign(Align::Center);
+
+        box_.append(&label);
+        box_
+    }
+
+    fn build_scroller(&self) -> ScrolledWindow {
+        let scroller = ScrolledWindow::builder()
+            .hexpand(true)
+            .vexpand(true)
+            .hscrollbar_policy(gtk4::PolicyType::Never)
+            .build();
+        scroller.add_css_class("launcher-grid-scroller");
+
+        let grid = Grid::new();
+        let spacing = self.config.grid.spacing.max(0) as u32;
+        grid.set_column_spacing(spacing);
+        grid.set_row_spacing(spacing);
+        grid.set_halign(Align::Start);
+        grid.set_valign(Align::Start);
+        grid.set_hexpand(false);
+        grid.set_vexpand(false);
+        grid.add_css_class("launcher-grid-section");
+
+        for (index, app_id) in self.app_ids.borrow().iter().enumerate() {
+            if let Some(app) = self.catalog.get(app_id) {
+                let column = (index as i32) % self.config.grid.columns;
+                let row = (index as i32) / self.config.grid.columns;
+                grid.attach(&self.build_quick_access_tile(app), column, row, 1, 1);
+            }
+        }
+
+        scroller.set_child(Some(&grid));
+        scroller
+    }
+
+    fn build_quick_access_tile(&self, app: &DesktopAppEntry) -> Button {
+        let button = LauncherWindow::build_app_tile_widget(app, self.config.grid.tile_size, None);
+        let app_info = app.app_info.clone();
+        let window = self.window.clone();
+        button.connect_clicked(move |_| {
+            if let Err(error) = app_info.launch(&[], None::<&gio::AppLaunchContext>) {
+                eprintln!("Failed to launch {}: {error}", app_info.display_name());
+                return;
+            }
+
+            window.close();
+        });
+
+        let remove_state = self.clone();
+        let app_id = app.id.clone();
+        let right_click = GestureClick::new();
+        right_click.set_button(3);
+        right_click.connect_pressed(move |_, _, _, _| {
+            remove_state.remove_app(&app_id);
+        });
+        button.add_controller(right_click);
+
+        button
+    }
+
+    fn load_ids(path: &PathBuf, catalog: &DesktopAppCatalog) -> Vec<String> {
+        let Ok(content) = fs::read_to_string(path) else {
+            return Vec::new();
+        };
+
+        let Ok(file) = toml::from_str::<QuickAccessFile>(&content) else {
+            return Vec::new();
+        };
+
+        let mut deduped = Vec::new();
+        for app_id in file.apps {
+            if catalog.get(&app_id).is_none() {
+                continue;
+            }
+
+            if deduped.iter().any(|existing| existing == &app_id) {
+                continue;
+            }
+
+            deduped.push(app_id);
+        }
+
+        deduped
+    }
+
+    fn save_ids(&self, app_ids: &[String]) -> Result<(), Box<dyn std::error::Error>> {
+        if let Some(parent) = self.path.parent() {
+            fs::create_dir_all(parent)?;
+        }
+
+        let content = toml::to_string_pretty(&QuickAccessFile {
+            apps: app_ids.to_vec(),
+        })?;
+        fs::write(&self.path, content)?;
+        Ok(())
+    }
 }
 
 #[derive(Clone)]
@@ -156,9 +400,16 @@ impl LauncherWindow {
     }
 
     fn build_root_container(&self) -> GtkBox {
+        let catalog = DesktopAppCatalog::new(self.collect_desktop_apps());
+        let quick_access = QuickAccessState::new(
+            self.config.quick_access_path.clone(),
+            catalog.clone(),
+            self.config.clone(),
+            &self.window,
+        );
         let content_stack = Stack::new();
         let navigator = LauncherNavigator::new(&content_stack);
-        self.populate_content_stack(&content_stack, &navigator);
+        self.populate_content_stack(&content_stack, &catalog, &quick_access);
 
         let root = GtkBox::new(Orientation::Horizontal, 0);
         root.add_css_class("launcher-root");
@@ -355,74 +606,46 @@ impl LauncherWindow {
         container
     }
 
-    fn populate_content_stack(&self, content_stack: &Stack, navigator: &LauncherNavigator) {
+    fn populate_content_stack(
+        &self,
+        content_stack: &Stack,
+        catalog: &DesktopAppCatalog,
+        quick_access: &QuickAccessState,
+    ) {
         content_stack.add_css_class("launcher-content-stack");
         content_stack.set_hexpand(true);
         content_stack.set_vexpand(true);
         content_stack.set_transition_type(StackTransitionType::Crossfade);
-        content_stack.add_named(&self.build_dashboard_page(navigator), Some("dashboard"));
-        content_stack.add_named(&self.build_all_apps_page(), Some("all-apps"));
+        content_stack.add_named(&self.build_dashboard_page(quick_access), Some("dashboard"));
+        content_stack.add_named(
+            &self.build_all_apps_page(catalog, quick_access),
+            Some("all-apps"),
+        );
     }
 
-    fn build_dashboard_page(&self, navigator: &LauncherNavigator) -> GtkBox {
-        let page = GtkBox::new(Orientation::Vertical, 12);
-        page.add_css_class("launcher-page");
-        page.add_css_class("launcher-dashboard-page");
-        page.set_hexpand(true);
-        page.set_vexpand(true);
-        page.append(&self.build_page_intro(
-            "Quick Access",
-            "Keep the current game-style home page as the entry view. Later it can host pinned apps, recent items, and system shortcuts.",
-            "Home",
-        ));
-        page.append(&self.build_grid_section(navigator));
-        page
+    fn build_dashboard_page(&self, quick_access: &QuickAccessState) -> GtkBox {
+        quick_access.build_home_page()
     }
 
-    fn build_all_apps_page(&self) -> GtkBox {
-        let apps = self.collect_desktop_apps();
+    fn build_all_apps_page(
+        &self,
+        catalog: &DesktopAppCatalog,
+        quick_access: &QuickAccessState,
+    ) -> GtkBox {
         let page = GtkBox::new(Orientation::Vertical, 12);
         page.add_css_class("launcher-page");
         page.add_css_class("launcher-all-apps-page");
         page.set_hexpand(true);
         page.set_vexpand(true);
-        page.append(&self.build_all_apps_scroller(&apps));
+        page.append(&self.build_all_apps_scroller(catalog, quick_access));
         page
     }
 
-    fn build_page_intro(&self, title_text: &str, subtitle_text: &str, badge_text: &str) -> GtkBox {
-        let container = GtkBox::new(Orientation::Vertical, 8);
-        let top_row = GtkBox::new(Orientation::Horizontal, 10);
-        let text_column = GtkBox::new(Orientation::Vertical, 4);
-
-        let title = Label::new(Some(title_text));
-        title.add_css_class("launcher-page-title");
-        title.set_halign(Align::Start);
-        title.set_xalign(0.0);
-
-        let subtitle = Label::new(Some(subtitle_text));
-        subtitle.add_css_class("launcher-page-subtitle");
-        subtitle.set_wrap(true);
-        subtitle.set_halign(Align::Start);
-        subtitle.set_xalign(0.0);
-
-        let badge = Label::new(Some(badge_text));
-        badge.add_css_class("launcher-page-badge");
-        badge.set_halign(Align::End);
-
-        text_column.set_hexpand(true);
-        text_column.append(&title);
-        text_column.append(&subtitle);
-
-        top_row.append(&text_column);
-        top_row.append(&badge);
-
-        container.add_css_class("launcher-page-intro");
-        container.append(&top_row);
-        container
-    }
-
-    fn build_all_apps_scroller(&self, apps: &[DesktopAppEntry]) -> ScrolledWindow {
+    fn build_all_apps_scroller(
+        &self,
+        catalog: &DesktopAppCatalog,
+        quick_access: &QuickAccessState,
+    ) -> ScrolledWindow {
         let scroller = ScrolledWindow::builder()
             .hexpand(true)
             .vexpand(true)
@@ -440,62 +663,32 @@ impl LauncherWindow {
         grid.set_vexpand(false);
         grid.add_css_class("launcher-apps-grid");
 
-        for (index, app) in apps.iter().enumerate() {
+        for (index, app) in catalog.ordered.iter().enumerate() {
             let column = (index as i32) % self.config.grid.columns;
             let row = (index as i32) / self.config.grid.columns;
-            grid.attach(&self.build_all_apps_tile(app), column, row, 1, 1);
+            grid.attach(
+                &self.build_all_apps_tile(app, quick_access),
+                column,
+                row,
+                1,
+                1,
+            );
         }
 
         scroller.set_child(Some(&grid));
         scroller
     }
 
-    fn build_all_apps_tile(&self, app: &DesktopAppEntry) -> Button {
-        let widget = Button::new();
-        let content = GtkBox::new(Orientation::Vertical, 8);
-        let icon = app
-            .app_info
-            .icon()
-            .map(|icon| Image::from_gicon(&icon))
-            .unwrap_or_else(|| Image::from_icon_name("application-x-executable-symbolic"));
-        let title = Label::new(Some(&Self::truncate_app_title(&app.name, 12)));
-
-        widget.add_css_class("launcher-app-tile");
-        widget.set_width_request(self.config.grid.tile_size);
-        widget.set_height_request(self.config.grid.tile_size);
-        widget.set_halign(Align::Start);
-        widget.set_valign(Align::Start);
-        widget.set_hexpand(false);
-        widget.set_vexpand(false);
-        widget.set_tooltip_text(Some(
-            app.description
-                .as_deref()
-                .filter(|description| !description.trim().is_empty())
-                .unwrap_or(&app.name),
-        ));
-
-        icon.add_css_class("launcher-app-tile-icon");
-        icon.set_pixel_size(30);
-        icon.set_halign(Align::Center);
-        icon.set_valign(Align::Center);
-
-        title.add_css_class("launcher-app-tile-title");
-        title.set_halign(Align::Center);
-        title.set_xalign(0.5);
-        title.set_wrap(false);
-        title.set_single_line_mode(true);
-        title.set_justify(gtk4::Justification::Center);
-        title.set_width_chars(10);
-        title.set_max_width_chars(10);
-
-        content.set_halign(Align::Center);
-        content.set_valign(Align::Center);
-        content.set_hexpand(true);
-        content.set_vexpand(true);
-        content.append(&icon);
-        content.append(&title);
-        widget.set_child(Some(&content));
-
+    fn build_all_apps_tile(
+        &self,
+        app: &DesktopAppEntry,
+        quick_access: &QuickAccessState,
+    ) -> Button {
+        let widget = Self::build_app_tile_widget(
+            app,
+            self.config.grid.tile_size,
+            app.description.as_deref(),
+        );
         let app_info = app.app_info.clone();
         let window = self.window.clone();
         widget.connect_clicked(move |_| {
@@ -506,6 +699,15 @@ impl LauncherWindow {
 
             window.close();
         });
+
+        let add_state = quick_access.clone();
+        let app_id = app.id.clone();
+        let right_click = GestureClick::new();
+        right_click.set_button(3);
+        right_click.connect_pressed(move |_, _, _, _| {
+            add_state.add_app(&app_id);
+        });
+        widget.add_controller(right_click);
 
         widget
     }
@@ -551,79 +753,57 @@ impl LauncherWindow {
         }
     }
 
-    fn build_grid_section(&self, navigator: &LauncherNavigator) -> ScrolledWindow {
-        let scroller = ScrolledWindow::builder()
-            .hexpand(true)
-            .vexpand(true)
-            .hscrollbar_policy(gtk4::PolicyType::Never)
-            .build();
-        scroller.add_css_class("launcher-grid-scroller");
-
-        let grid = Grid::new();
-        let spacing = self.config.grid.spacing.max(0) as u32;
-        grid.set_column_spacing(spacing);
-        grid.set_row_spacing(spacing);
-        grid.set_halign(Align::Start);
-        grid.set_valign(Align::Start);
-        grid.set_hexpand(false);
-        grid.set_vexpand(false);
-        grid.add_css_class("launcher-grid-section");
-
-        for (index, button) in self.config.grid.buttons.iter().enumerate() {
-            let column = (index as i32) % self.config.grid.columns;
-            let row = (index as i32) / self.config.grid.columns;
-            grid.attach(
-                &self.build_menu_tile_button(button, &self.config.grid, Some(navigator)),
-                column,
-                row,
-                1,
-                1,
-            );
-        }
-
-        scroller.set_child(Some(&grid));
-        scroller
-    }
-
-    fn build_menu_tile_button(
-        &self,
-        button: &ButtonConfig,
-        grid: &GridSectionConfig,
-        navigator: Option<&LauncherNavigator>,
+    fn build_app_tile_widget(
+        app: &DesktopAppEntry,
+        tile_size: i32,
+        tooltip_fallback: Option<&str>,
     ) -> Button {
         let widget = Button::new();
         let content = GtkBox::new(Orientation::Vertical, 8);
-        let icon = Label::new(Some(button.icon_name.as_deref().unwrap_or("icon")));
-        let title = Label::new(Some(&button.label));
+        let icon = app
+            .app_info
+            .icon()
+            .map(|icon| Image::from_gicon(&icon))
+            .unwrap_or_else(|| Image::from_icon_name("application-x-executable-symbolic"));
+        let title = Label::new(Some(&Self::truncate_app_title(&app.name, 12)));
 
-        widget.set_width_request(grid.tile_size);
-        widget.set_height_request(grid.tile_size);
+        widget.add_css_class("launcher-app-tile");
+        widget.set_width_request(tile_size);
+        widget.set_height_request(tile_size);
         widget.set_halign(Align::Start);
         widget.set_valign(Align::Start);
         widget.set_hexpand(false);
         widget.set_vexpand(false);
-        widget.set_tooltip_text(Some(&Self::button_tooltip(button)));
-        widget.add_css_class("menu-tile-button");
-        self.bind_button_action(&widget, button, navigator.cloned());
+        widget.set_tooltip_text(Some(
+            app.description
+                .as_deref()
+                .filter(|description| !description.trim().is_empty())
+                .or(tooltip_fallback)
+                .unwrap_or(&app.name),
+        ));
 
-        content.set_valign(Align::Center);
-        content.set_halign(Align::Center);
-        content.set_hexpand(false);
-        content.set_vexpand(false);
+        icon.add_css_class("launcher-app-tile-icon");
+        icon.set_pixel_size(30);
+        icon.set_halign(Align::Center);
+        icon.set_valign(Align::Center);
 
-        icon.add_css_class("menu-tile-icon");
-        icon.set_wrap(true);
-        icon.set_justify(gtk4::Justification::Center);
-        icon.set_max_width_chars(10);
-
-        title.set_wrap(true);
+        title.add_css_class("launcher-app-tile-title");
+        title.set_halign(Align::Center);
+        title.set_xalign(0.5);
+        title.set_wrap(false);
+        title.set_single_line_mode(true);
         title.set_justify(gtk4::Justification::Center);
+        title.set_width_chars(10);
         title.set_max_width_chars(10);
-        title.add_css_class("menu-tile-label");
 
+        content.set_halign(Align::Center);
+        content.set_valign(Align::Center);
+        content.set_hexpand(true);
+        content.set_vexpand(true);
         content.append(&icon);
         content.append(&title);
         widget.set_child(Some(&content));
+
         widget
     }
 
