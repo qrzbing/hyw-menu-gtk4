@@ -70,6 +70,7 @@ pub(super) struct TopPanelsFileConfig {
 #[serde(tag = "kind", rename_all = "snake_case")]
 pub(super) enum TopPanelFileConfig {
     Avatar(AvatarPanelFileConfig),
+    Profile(ProfilePanelFileConfig),
     Text(TextPanelFileConfig),
     Search(SearchPanelFileConfig),
 }
@@ -80,6 +81,42 @@ pub(super) struct AvatarPanelFileConfig {
     pub(super) image: Option<PathBuf>,
     pub(super) label: Option<String>,
     pub(super) size: Option<i32>,
+}
+
+#[derive(Debug, Deserialize, Default, Clone)]
+pub(super) struct ProfilePanelFileConfig {
+    #[serde(alias = "background")]
+    pub(super) background_path: Option<PathBuf>,
+    #[serde(alias = "avatar")]
+    pub(super) avatar_path: Option<PathBuf>,
+    pub(super) avatar_label: Option<String>,
+    pub(super) avatar_size: Option<i32>,
+    pub(super) uid: Option<String>,
+    pub(super) action_text: Option<String>,
+    pub(super) title: Option<String>,
+    pub(super) subtitle: Option<String>,
+    #[serde(default)]
+    pub(super) items: Vec<ProfileItemFileConfig>,
+}
+
+#[derive(Debug, Deserialize, Clone)]
+#[serde(tag = "kind", rename_all = "snake_case")]
+pub(super) enum ProfileItemFileConfig {
+    Text(ProfileTextItemFileConfig),
+    Progress(ProfileProgressItemFileConfig),
+}
+
+#[derive(Debug, Deserialize, Default, Clone)]
+pub(super) struct ProfileTextItemFileConfig {
+    pub(super) label: Option<String>,
+    pub(super) value: Option<String>,
+}
+
+#[derive(Debug, Deserialize, Default, Clone)]
+pub(super) struct ProfileProgressItemFileConfig {
+    pub(super) label: Option<String>,
+    pub(super) value: Option<String>,
+    pub(super) progress: Option<f64>,
 }
 
 #[derive(Debug, Deserialize, Default, Clone)]

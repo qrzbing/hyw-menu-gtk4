@@ -119,6 +119,91 @@
   font-weight: 900;
 }
 
+.launcher-profile-panel {
+  background: rgba(255, 248, 237, 0.12);
+  border-color: rgba(255, 239, 214, 0.16);
+}
+
+.launcher-profile-background {
+  opacity: 0.92;
+}
+
+.launcher-profile-panel-content {
+  padding: 14px 16px;
+  background: linear-gradient(180deg, rgba(120, 76, 68, 0.34) 0%, rgba(142, 90, 79, 0.22) 100%);
+}
+
+.launcher-profile-sidebar {
+  min-width: 0;
+}
+
+.launcher-profile-body {
+  min-width: 0;
+}
+
+.launcher-profile-uid {
+  padding: 5px 10px;
+  border-radius: 999px;
+  background: rgba(88, 64, 57, 0.34);
+  color: rgba(255, 247, 235, 0.96);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.launcher-profile-action-text {
+  color: rgba(255, 240, 222, 0.72);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.launcher-profile-title {
+  color: #fff8f0;
+  font-size: 30px;
+  font-weight: 800;
+}
+
+.launcher-profile-subtitle {
+  color: rgba(255, 246, 232, 0.94);
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.launcher-profile-items {
+  margin-top: 6px;
+}
+
+.launcher-profile-item {
+  min-width: 0;
+}
+
+.launcher-profile-item-label {
+  color: rgba(255, 241, 224, 0.92);
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.launcher-profile-item-value {
+  color: #fff9f2;
+  font-size: 15px;
+  font-weight: 800;
+}
+
+.launcher-profile-progress-bar {
+  min-height: 10px;
+}
+
+.launcher-profile-progress-bar trough {
+  min-height: 10px;
+  border-radius: 999px;
+  background: rgba(77, 55, 47, 0.35);
+}
+
+.launcher-profile-progress-bar progress {
+  min-height: 10px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #8fd16f 0%, #d6f188 100%);
+}
+
 .launcher-text-panel {
   background: rgba(255, 248, 237, 0.16);
 }

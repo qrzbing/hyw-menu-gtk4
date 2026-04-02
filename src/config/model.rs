@@ -75,6 +75,7 @@ pub struct TopPanelsConfig {
 #[derive(Debug, Clone)]
 pub enum TopPanelConfig {
     Avatar(AvatarPanelConfig),
+    Profile(ProfilePanelConfig),
     Text(TextPanelConfig),
     Search(SearchPanelConfig),
 }
@@ -84,6 +85,38 @@ pub struct AvatarPanelConfig {
     image_path: Option<PathBuf>,
     label: String,
     size: i32,
+}
+
+#[derive(Debug, Clone)]
+pub struct ProfilePanelConfig {
+    background_path: Option<PathBuf>,
+    avatar_path: Option<PathBuf>,
+    avatar_label: String,
+    avatar_size: i32,
+    uid: Option<String>,
+    action_text: Option<String>,
+    title: String,
+    subtitle: Option<String>,
+    items: Vec<ProfileItemConfig>,
+}
+
+#[derive(Debug, Clone)]
+pub enum ProfileItemConfig {
+    Text(ProfileTextItemConfig),
+    Progress(ProfileProgressItemConfig),
+}
+
+#[derive(Debug, Clone)]
+pub struct ProfileTextItemConfig {
+    label: String,
+    value: String,
+}
+
+#[derive(Debug, Clone)]
+pub struct ProfileProgressItemConfig {
+    label: String,
+    value: String,
+    progress: f64,
 }
 
 #[derive(Debug, Clone)]
@@ -486,6 +519,104 @@ impl AvatarPanelConfig {
 
     pub fn size(&self) -> i32 {
         self.size
+    }
+}
+
+impl ProfilePanelConfig {
+    pub(crate) fn new(
+        background_path: Option<PathBuf>,
+        avatar_path: Option<PathBuf>,
+        avatar_label: String,
+        avatar_size: i32,
+        uid: Option<String>,
+        action_text: Option<String>,
+        title: String,
+        subtitle: Option<String>,
+        items: Vec<ProfileItemConfig>,
+    ) -> Self {
+        Self {
+            background_path,
+            avatar_path,
+            avatar_label,
+            avatar_size,
+            uid,
+            action_text,
+            title,
+            subtitle,
+            items,
+        }
+    }
+
+    pub fn background_path(&self) -> Option<&Path> {
+        self.background_path.as_deref()
+    }
+
+    pub fn avatar_path(&self) -> Option<&Path> {
+        self.avatar_path.as_deref()
+    }
+
+    pub fn avatar_label(&self) -> &str {
+        &self.avatar_label
+    }
+
+    pub fn avatar_size(&self) -> i32 {
+        self.avatar_size
+    }
+
+    pub fn uid(&self) -> Option<&str> {
+        self.uid.as_deref()
+    }
+
+    pub fn action_text(&self) -> Option<&str> {
+        self.action_text.as_deref()
+    }
+
+    pub fn title(&self) -> &str {
+        &self.title
+    }
+
+    pub fn subtitle(&self) -> Option<&str> {
+        self.subtitle.as_deref()
+    }
+
+    pub fn items(&self) -> &[ProfileItemConfig] {
+        &self.items
+    }
+}
+
+impl ProfileTextItemConfig {
+    pub(crate) fn new(label: String, value: String) -> Self {
+        Self { label, value }
+    }
+
+    pub fn label(&self) -> &str {
+        &self.label
+    }
+
+    pub fn value(&self) -> &str {
+        &self.value
+    }
+}
+
+impl ProfileProgressItemConfig {
+    pub(crate) fn new(label: String, value: String, progress: f64) -> Self {
+        Self {
+            label,
+            value,
+            progress,
+        }
+    }
+
+    pub fn label(&self) -> &str {
+        &self.label
+    }
+
+    pub fn value(&self) -> &str {
+        &self.value
+    }
+
+    pub fn progress(&self) -> f64 {
+        self.progress
     }
 }
 

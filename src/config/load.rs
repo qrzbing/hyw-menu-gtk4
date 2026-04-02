@@ -2,11 +2,13 @@ use std::env;
 use std::path::{Path, PathBuf};
 
 use super::file::{
-    AvatarPanelFileConfig, ButtonFileConfig, LauncherFileConfig, SearchPanelFileConfig,
-    SidebarButtonFileEntry, TextPanelFileConfig, TopPanelFileConfig,
+    AvatarPanelFileConfig, ButtonFileConfig, LauncherFileConfig, ProfileItemFileConfig,
+    ProfilePanelFileConfig, ProfileProgressItemFileConfig, ProfileTextItemFileConfig,
+    SearchPanelFileConfig, SidebarButtonFileEntry, TextPanelFileConfig, TopPanelFileConfig,
 };
 use super::model::{
     AvatarPanelConfig, ButtonConfig, GridSectionConfig, LauncherConfig, MenuAction,
+    ProfileItemConfig, ProfilePanelConfig, ProfileProgressItemConfig, ProfileTextItemConfig,
     SearchPanelConfig, SidebarConfig, SidebarMetrics, SidebarSizing, SidebarSpacing,
     TextPanelConfig, TextPanelVariant, ThemeConfig, TopPanelConfig, TopPanelsConfig, WindowConfig,
 };
@@ -88,22 +90,20 @@ impl LauncherConfig {
         }
 
         if !file_config.top_panels.left.is_empty() {
-            let panels = file_config
-                .top_panels
-                .left
-                .into_iter()
-                .map(|panel| top_panel_config_from_file(panel, config_dir))
-                .collect();
+            let panels = top_panel_column_config_from_file(
+                file_config.top_panels.left,
+                config_dir,
+                TopPanelColumn::Left,
+            );
             self.top_panels_mut().set_left_panels(panels);
         }
 
         if !file_config.top_panels.right.is_empty() {
-            let panels = file_config
-                .top_panels
-                .right
-                .into_iter()
-                .map(|panel| top_panel_config_from_file(panel, config_dir))
-                .collect();
+            let panels = top_panel_column_config_from_file(
+                file_config.top_panels.right,
+                config_dir,
+                TopPanelColumn::Right,
+            );
             self.top_panels_mut().set_right_panels(panels);
         }
 
@@ -257,21 +257,53 @@ fn sidebar_button_config(label: &str) -> ButtonConfig {
     )
 }
 
-fn top_panel_config_from_file(
-    panel: TopPanelFileConfig,
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum TopPanelColumn {
+    Left,
+    Right,
+}
+
+fn top_panel_column_config_from_file(
+    panels: Vec<TopPanelFileConfig>,
     config_dir: Option<&Path>,
-) -> TopPanelConfig {
-    match panel {
-        TopPanelFileConfig::Avatar(config) => {
-            TopPanelConfig::Avatar(avatar_panel_config_from_file(config, config_dir))
-        }
-        TopPanelFileConfig::Text(config) => {
-            TopPanelConfig::Text(text_panel_config_from_file(config))
-        }
-        TopPanelFileConfig::Search(config) => {
-            TopPanelConfig::Search(search_panel_config_from_file(config))
+    column: TopPanelColumn,
+) -> Vec<TopPanelConfig> {
+    let mut resolved = Vec::new();
+    let mut seen_profile = false;
+
+    for panel in panels {
+        match panel {
+            TopPanelFileConfig::Avatar(config) => resolved.push(TopPanelConfig::Avatar(
+                avatar_panel_config_from_file(config, config_dir),
+            )),
+            TopPanelFileConfig::Profile(config) => {
+                if column == TopPanelColumn::Right {
+                    eprintln!("ignoring unsupported profile panel in right column");
+                    continue;
+                }
+
+                if seen_profile {
+                    eprintln!("ignoring extra profile panel in left column");
+                    continue;
+                }
+
+                seen_profile = true;
+                resolved.push(TopPanelConfig::Profile(profile_panel_config_from_file(
+                    config, config_dir,
+                )));
+            }
+            TopPanelFileConfig::Text(config) => {
+                resolved.push(TopPanelConfig::Text(text_panel_config_from_file(config)));
+            }
+            TopPanelFileConfig::Search(config) => {
+                resolved.push(TopPanelConfig::Search(search_panel_config_from_file(
+                    config,
+                )));
+            }
         }
     }
+
+    resolved
 }
 
 fn avatar_panel_config_from_file(
@@ -283,6 +315,59 @@ fn avatar_panel_config_from_file(
     let size = config.size.unwrap_or(96).clamp(48, 160);
 
     AvatarPanelConfig::new(image_path, label, size)
+}
+
+fn profile_panel_config_from_file(
+    config: ProfilePanelFileConfig,
+    config_dir: Option<&Path>,
+) -> ProfilePanelConfig {
+    let title = config.title.unwrap_or_else(|| "Profile".to_owned());
+    let avatar_label = config.avatar_label.unwrap_or_else(|| title.clone());
+    let items = config
+        .items
+        .into_iter()
+        .filter_map(profile_item_config_from_file)
+        .collect();
+
+    ProfilePanelConfig::new(
+        resolve_config_path(config_dir, config.background_path),
+        resolve_config_path(config_dir, config.avatar_path),
+        avatar_label,
+        config.avatar_size.unwrap_or(88).clamp(48, 160),
+        empty_string_as_none(config.uid),
+        empty_string_as_none(config.action_text),
+        title,
+        empty_string_as_none(config.subtitle),
+        items,
+    )
+}
+
+fn profile_item_config_from_file(item: ProfileItemFileConfig) -> Option<ProfileItemConfig> {
+    match item {
+        ProfileItemFileConfig::Text(config) => {
+            profile_text_item_config_from_file(config).map(ProfileItemConfig::Text)
+        }
+        ProfileItemFileConfig::Progress(config) => {
+            profile_progress_item_config_from_file(config).map(ProfileItemConfig::Progress)
+        }
+    }
+}
+
+fn profile_text_item_config_from_file(
+    config: ProfileTextItemFileConfig,
+) -> Option<ProfileTextItemConfig> {
+    let label = non_empty_or_default(config.label, "item");
+    let value = empty_string_as_none(config.value)?;
+    Some(ProfileTextItemConfig::new(label, value))
+}
+
+fn profile_progress_item_config_from_file(
+    config: ProfileProgressItemFileConfig,
+) -> Option<ProfileProgressItemConfig> {
+    let label = non_empty_or_default(config.label, "progress");
+    let value = empty_string_as_none(config.value)?;
+    let progress = config.progress.unwrap_or(0.0).clamp(0.0, 1.0);
+    Some(ProfileProgressItemConfig::new(label, value, progress))
 }
 
 fn text_panel_config_from_file(config: TextPanelFileConfig) -> TextPanelConfig {
@@ -302,12 +387,23 @@ fn text_panel_config_from_file(config: TextPanelFileConfig) -> TextPanelConfig {
 
 fn search_panel_config_from_file(config: SearchPanelFileConfig) -> SearchPanelConfig {
     SearchPanelConfig::new(
-        config.title,
+        empty_string_as_none(config.title),
         config
             .placeholder
             .unwrap_or_else(|| "search all applications".to_owned()),
         config.min_height.unwrap_or(72).clamp(48, 160),
     )
+}
+
+fn empty_string_as_none(value: Option<String>) -> Option<String> {
+    value.and_then(|value| {
+        let trimmed = value.trim();
+        (!trimmed.is_empty()).then(|| trimmed.to_owned())
+    })
+}
+
+fn non_empty_or_default(value: Option<String>, default: &str) -> String {
+    empty_string_as_none(value).unwrap_or_else(|| default.to_owned())
 }
 
 fn grid_button_config(label: &str) -> ButtonConfig {
