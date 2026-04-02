@@ -333,7 +333,7 @@ fn profile_panel_config_from_file(
         resolve_config_path(config_dir, config.background_path),
         resolve_config_path(config_dir, config.avatar_path),
         avatar_label,
-        config.avatar_size.unwrap_or(88).clamp(48, 160),
+        config.avatar_size.unwrap_or(88).clamp(8, 512),
         empty_string_as_none(config.uid),
         empty_string_as_none(config.action_text),
         title,

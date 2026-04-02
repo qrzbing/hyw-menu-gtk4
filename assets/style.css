@@ -79,6 +79,10 @@
   border: 1px solid rgba(255, 239, 214, 0.22);
 }
 
+.launcher-top-panels-single {
+  margin-bottom: 4px;
+}
+
 .launcher-top-panels-column {
   min-width: 0;
 }
@@ -109,7 +113,8 @@
   border: 4px solid rgba(255, 248, 235, 0.76);
 }
 
-.launcher-avatar-picture {
+.launcher-avatar-picture,
+.launcher-avatar-image {
   border-radius: 999px;
 }
 
@@ -120,6 +125,7 @@
 }
 
 .launcher-profile-panel {
+  padding: 0;
   background: rgba(255, 248, 237, 0.12);
   border-color: rgba(255, 239, 214, 0.16);
 }
@@ -129,7 +135,7 @@
 }
 
 .launcher-profile-panel-content {
-  padding: 14px 16px;
+  padding: 10px 12px;
   background: linear-gradient(180deg, rgba(120, 76, 68, 0.34) 0%, rgba(142, 90, 79, 0.22) 100%);
 }
 

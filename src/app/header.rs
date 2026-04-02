@@ -1,10 +1,11 @@
 use std::path::Path;
 
+use gtk4::gdk::Texture;
 use gtk4::pango::EllipsizeMode;
 use gtk4::prelude::*;
 use gtk4::{
-    Align, Box as GtkBox, ContentFit, Label, Orientation, Overflow, Overlay, Picture, ProgressBar,
-    SearchEntry, Stack, Widget,
+    Align, Box as GtkBox, ContentFit, Image, Label, Orientation, Overflow, Overlay, Picture,
+    ProgressBar, SearchEntry, Stack, Widget,
 };
 
 use super::launcher::LauncherWindow;
@@ -28,7 +29,7 @@ impl LauncherWindow {
         panel.set_vexpand(true);
         panel.set_margin_top(self.config().top_panels().outer_margin());
         panel.set_margin_bottom(self.config().top_panels().outer_margin());
-        panel.set_margin_start(8);
+        panel.set_margin_start(0);
         panel.set_margin_end(self.config().top_panels().outer_margin());
 
         if let Some(top_panels) = self.build_top_panels(navigator, all_apps) {
@@ -44,10 +45,22 @@ impl LauncherWindow {
         navigator: &LauncherNavigator,
         all_apps: &AllAppsPageState,
     ) -> Option<GtkBox> {
-        if self.config().top_panels().left_panels().is_empty()
-            && self.config().top_panels().right_panels().is_empty()
-        {
+        let left_panels = self.config().top_panels().left_panels();
+        let right_panels = self.config().top_panels().right_panels();
+
+        if left_panels.is_empty() && right_panels.is_empty() {
             return None;
+        }
+
+        if right_panels.is_empty()
+            && left_panels.len() == 1
+            && matches!(left_panels.first(), Some(TopPanelConfig::Profile(_)))
+        {
+            let container = GtkBox::new(Orientation::Vertical, 0);
+            container.add_css_class("launcher-top-panels-single");
+            container.set_hexpand(true);
+            container.append(&self.build_top_panel_widget(&left_panels[0], navigator, all_apps));
+            return Some(container);
         }
 
         let container = GtkBox::new(
@@ -58,22 +71,17 @@ impl LauncherWindow {
         container.set_hexpand(true);
         container.set_height_request(self.config().top_panels().height());
 
-        if !self.config().top_panels().left_panels().is_empty() {
-            let left_column = self.build_top_panel_column(
-                self.config().top_panels().left_panels(),
-                navigator,
-                all_apps,
-                true,
-            );
+        if !left_panels.is_empty() {
+            let left_column = self.build_top_panel_column(left_panels, navigator, all_apps, true);
             container.append(&left_column);
         }
 
-        if !self.config().top_panels().right_panels().is_empty() {
+        if !right_panels.is_empty() {
             let right_column = self.build_top_panel_column(
-                self.config().top_panels().right_panels(),
+                right_panels,
                 navigator,
                 all_apps,
-                self.config().top_panels().left_panels().is_empty(),
+                left_panels.is_empty(),
             );
             container.append(&right_column);
         }
@@ -129,7 +137,7 @@ impl LauncherWindow {
 
         panel.add_css_class("launcher-top-panel");
         panel.add_css_class("launcher-avatar-panel");
-        panel.set_width_request(config.size() + 8);
+        panel.set_width_request(config.size());
         panel.set_vexpand(false);
         panel.set_valign(Align::Start);
         panel.append(&self.build_avatar_frame(config.image_path(), config.label(), config.size()));
@@ -152,7 +160,9 @@ impl LauncherWindow {
         content.set_hexpand(true);
         content.set_vexpand(false);
         sidebar.add_css_class("launcher-profile-sidebar");
-        sidebar.set_width_request((config.avatar_size() + 36).max(128));
+        sidebar.set_width_request(config.avatar_size() + 12);
+        sidebar.set_halign(Align::Start);
+        sidebar.set_hexpand(false);
         sidebar.set_vexpand(false);
         body.add_css_class("launcher-profile-body");
         body.set_hexpand(true);
@@ -175,17 +185,27 @@ impl LauncherWindow {
 
         if let Some(uid) = config.uid() {
             let uid_label = Label::new(Some(uid));
+            let width_chars = LauncherWindow::approx_width_chars(config.avatar_size() + 12);
             uid_label.add_css_class("launcher-profile-uid");
             uid_label.set_halign(Align::Center);
             uid_label.set_xalign(0.5);
+            uid_label.set_width_request(config.avatar_size() + 12);
+            uid_label.set_width_chars(width_chars);
+            uid_label.set_max_width_chars(width_chars);
+            uid_label.set_ellipsize(EllipsizeMode::End);
             sidebar.append(&uid_label);
         }
 
         if let Some(action_text) = config.action_text() {
             let action_label = Label::new(Some(action_text));
+            let width_chars = LauncherWindow::approx_width_chars(config.avatar_size() + 12);
             action_label.add_css_class("launcher-profile-action-text");
             action_label.set_halign(Align::Center);
             action_label.set_xalign(0.5);
+            action_label.set_width_request(config.avatar_size() + 12);
+            action_label.set_width_chars(width_chars);
+            action_label.set_max_width_chars(width_chars);
+            action_label.set_ellipsize(EllipsizeMode::End);
             sidebar.append(&action_label);
         }
 
@@ -384,32 +404,48 @@ impl LauncherWindow {
             .unwrap_or_else(|| "?".to_owned())
     }
 
-    fn build_avatar_frame(&self, image_path: Option<&Path>, label: &str, size: i32) -> GtkBox {
-        let frame = GtkBox::new(Orientation::Vertical, 0);
+    fn approx_width_chars(width: i32) -> i32 {
+        (((width.max(8)) as f32) / 8.0).round() as i32
+    }
 
-        frame.add_css_class("launcher-avatar-frame");
-        frame.set_halign(Align::Start);
-        frame.set_valign(Align::Start);
-        frame.set_width_request(size);
-        frame.set_height_request(size);
-        frame.set_overflow(Overflow::Hidden);
-
+    fn build_avatar_frame(&self, image_path: Option<&Path>, label: &str, size: i32) -> Widget {
         if let Some(image_path) = image_path {
-            let picture = Picture::for_filename(image_path);
-            picture.add_css_class("launcher-avatar-picture");
-            picture.set_can_shrink(true);
-            picture.set_content_fit(ContentFit::Cover);
-            picture.set_width_request(size);
-            picture.set_height_request(size);
-            frame.append(&picture);
-        } else {
-            let fallback = Label::new(Some(&self.avatar_fallback_text(label)));
-            fallback.add_css_class("launcher-avatar-fallback");
-            fallback.set_halign(Align::Center);
-            fallback.set_valign(Align::Center);
-            frame.append(&fallback);
+            match Texture::from_filename(image_path) {
+                Ok(texture) => {
+                    let image = Image::from_paintable(Some(&texture));
+                    image.add_css_class("launcher-avatar-frame");
+                    image.add_css_class("launcher-avatar-image");
+                    image.set_halign(Align::Center);
+                    image.set_valign(Align::Start);
+                    image.set_pixel_size(size);
+                    image.set_size_request(size, size);
+                    image.set_hexpand(false);
+                    image.set_vexpand(false);
+                    image.set_overflow(Overflow::Hidden);
+                    return image.upcast();
+                }
+                Err(error) => {
+                    eprintln!(
+                        "failed to load avatar texture {}: {error}",
+                        image_path.display()
+                    );
+                }
+            }
         }
 
-        frame
+        let frame = GtkBox::new(Orientation::Vertical, 0);
+        let fallback = Label::new(Some(&self.avatar_fallback_text(label)));
+        frame.add_css_class("launcher-avatar-frame");
+        frame.set_halign(Align::Center);
+        frame.set_valign(Align::Start);
+        frame.set_size_request(size, size);
+        frame.set_hexpand(false);
+        frame.set_vexpand(false);
+        frame.set_overflow(Overflow::Hidden);
+        fallback.add_css_class("launcher-avatar-fallback");
+        fallback.set_halign(Align::Center);
+        fallback.set_valign(Align::Center);
+        frame.append(&fallback);
+        frame.upcast()
     }
 }
