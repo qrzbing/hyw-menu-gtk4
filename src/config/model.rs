@@ -7,7 +7,7 @@ pub struct LauncherConfig {
     theme: ThemeConfig,
     window: WindowConfig,
     sidebar: SidebarConfig,
-    header: HeaderBannerConfig,
+    top_panels: TopPanelsConfig,
     grid: GridSectionConfig,
 }
 
@@ -64,20 +64,48 @@ pub(crate) struct SidebarSpacing {
 }
 
 #[derive(Debug, Clone)]
-pub struct HeaderBannerConfig {
+pub struct TopPanelsConfig {
     height: i32,
     spacing: i32,
     outer_margin: i32,
-    title: String,
-    subtitle: String,
-    stats: Vec<HeaderStatConfig>,
-    action_buttons: Vec<ButtonConfig>,
+    left_panels: Vec<TopPanelConfig>,
+    right_panels: Vec<TopPanelConfig>,
 }
 
 #[derive(Debug, Clone)]
-pub struct HeaderStatConfig {
+pub enum TopPanelConfig {
+    Avatar(AvatarPanelConfig),
+    Text(TextPanelConfig),
+    Search(SearchPanelConfig),
+}
+
+#[derive(Debug, Clone)]
+pub struct AvatarPanelConfig {
+    image_path: Option<PathBuf>,
     label: String,
-    value: String,
+    size: i32,
+}
+
+#[derive(Debug, Clone)]
+pub struct TextPanelConfig {
+    variant: TextPanelVariant,
+    title: Option<String>,
+    body: Option<String>,
+    badge: Option<String>,
+    min_height: i32,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum TextPanelVariant {
+    Hero,
+    Card,
+}
+
+#[derive(Debug, Clone)]
+pub struct SearchPanelConfig {
+    title: Option<String>,
+    placeholder: String,
+    min_height: i32,
 }
 
 #[derive(Debug, Clone)]
@@ -111,7 +139,7 @@ impl LauncherConfig {
         theme: ThemeConfig,
         window: WindowConfig,
         sidebar: SidebarConfig,
-        header: HeaderBannerConfig,
+        top_panels: TopPanelsConfig,
         grid: GridSectionConfig,
     ) -> Self {
         Self {
@@ -120,7 +148,7 @@ impl LauncherConfig {
             theme,
             window,
             sidebar,
-            header,
+            top_panels,
             grid,
         }
     }
@@ -161,8 +189,12 @@ impl LauncherConfig {
         &mut self.sidebar
     }
 
-    pub fn header(&self) -> &HeaderBannerConfig {
-        &self.header
+    pub fn top_panels(&self) -> &TopPanelsConfig {
+        &self.top_panels
+    }
+
+    pub(crate) fn top_panels_mut(&mut self) -> &mut TopPanelsConfig {
+        &mut self.top_panels
     }
 
     pub fn grid(&self) -> &GridSectionConfig {
@@ -377,24 +409,20 @@ impl SidebarSpacing {
     }
 }
 
-impl HeaderBannerConfig {
+impl TopPanelsConfig {
     pub(crate) fn new(
         height: i32,
         spacing: i32,
         outer_margin: i32,
-        title: String,
-        subtitle: String,
-        stats: Vec<HeaderStatConfig>,
-        action_buttons: Vec<ButtonConfig>,
+        left_panels: Vec<TopPanelConfig>,
+        right_panels: Vec<TopPanelConfig>,
     ) -> Self {
         Self {
             height,
             spacing,
             outer_margin,
-            title,
-            subtitle,
-            stats,
-            action_buttons,
+            left_panels,
+            right_panels,
         }
     }
 
@@ -410,34 +438,114 @@ impl HeaderBannerConfig {
         self.outer_margin
     }
 
-    pub fn title(&self) -> &str {
-        &self.title
+    pub fn left_panels(&self) -> &[TopPanelConfig] {
+        &self.left_panels
     }
 
-    pub fn subtitle(&self) -> &str {
-        &self.subtitle
+    pub fn right_panels(&self) -> &[TopPanelConfig] {
+        &self.right_panels
     }
 
-    pub fn stats(&self) -> &[HeaderStatConfig] {
-        &self.stats
+    pub fn set_height(&mut self, height: i32) {
+        self.height = height;
     }
 
-    pub fn action_buttons(&self) -> &[ButtonConfig] {
-        &self.action_buttons
+    pub fn set_spacing(&mut self, spacing: i32) {
+        self.spacing = spacing;
+    }
+
+    pub fn set_outer_margin(&mut self, outer_margin: i32) {
+        self.outer_margin = outer_margin;
+    }
+
+    pub fn set_left_panels(&mut self, left_panels: Vec<TopPanelConfig>) {
+        self.left_panels = left_panels;
+    }
+
+    pub fn set_right_panels(&mut self, right_panels: Vec<TopPanelConfig>) {
+        self.right_panels = right_panels;
     }
 }
 
-impl HeaderStatConfig {
-    pub(crate) fn new(label: String, value: String) -> Self {
-        Self { label, value }
+impl AvatarPanelConfig {
+    pub(crate) fn new(image_path: Option<PathBuf>, label: String, size: i32) -> Self {
+        Self {
+            image_path,
+            label,
+            size,
+        }
+    }
+
+    pub fn image_path(&self) -> Option<&Path> {
+        self.image_path.as_deref()
     }
 
     pub fn label(&self) -> &str {
         &self.label
     }
 
-    pub fn value(&self) -> &str {
-        &self.value
+    pub fn size(&self) -> i32 {
+        self.size
+    }
+}
+
+impl TextPanelConfig {
+    pub(crate) fn new(
+        variant: TextPanelVariant,
+        title: Option<String>,
+        body: Option<String>,
+        badge: Option<String>,
+        min_height: i32,
+    ) -> Self {
+        Self {
+            variant,
+            title,
+            body,
+            badge,
+            min_height,
+        }
+    }
+
+    pub fn variant(&self) -> TextPanelVariant {
+        self.variant
+    }
+
+    pub fn title(&self) -> Option<&str> {
+        self.title.as_deref()
+    }
+
+    pub fn body(&self) -> Option<&str> {
+        self.body.as_deref()
+    }
+
+    pub fn badge(&self) -> Option<&str> {
+        self.badge.as_deref()
+    }
+
+    pub fn min_height(&self) -> i32 {
+        self.min_height
+    }
+}
+
+impl SearchPanelConfig {
+    pub(crate) fn new(title: Option<String>, placeholder: String, min_height: i32) -> Self {
+        Self {
+            title,
+            placeholder,
+            min_height,
+        }
+    }
+
+    pub fn title(&self) -> Option<&str> {
+        self.title.as_deref()
+    }
+
+    pub fn placeholder(&self) -> &str {
+        &self.placeholder
+    }
+
+    pub fn min_height(&self) -> i32 {
+        self.min_height
     }
 }
 

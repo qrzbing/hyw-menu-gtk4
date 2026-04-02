@@ -14,6 +14,8 @@ pub(super) struct LauncherFileConfig {
     #[serde(default)]
     pub(super) sidebar: SidebarFileConfig,
     #[serde(default)]
+    pub(super) top_panels: TopPanelsFileConfig,
+    #[serde(default)]
     pub(super) grid: GridFileConfig,
 }
 
@@ -51,6 +53,49 @@ pub(super) struct GridFileConfig {
     pub(super) tile_height: Option<i32>,
     #[serde(default)]
     pub(super) cards: Vec<String>,
+}
+
+#[derive(Debug, Deserialize, Default)]
+pub(super) struct TopPanelsFileConfig {
+    pub(super) height: Option<i32>,
+    pub(super) spacing: Option<i32>,
+    pub(super) outer_margin: Option<i32>,
+    #[serde(default)]
+    pub(super) left: Vec<TopPanelFileConfig>,
+    #[serde(default)]
+    pub(super) right: Vec<TopPanelFileConfig>,
+}
+
+#[derive(Debug, Deserialize, Clone)]
+#[serde(tag = "kind", rename_all = "snake_case")]
+pub(super) enum TopPanelFileConfig {
+    Avatar(AvatarPanelFileConfig),
+    Text(TextPanelFileConfig),
+    Search(SearchPanelFileConfig),
+}
+
+#[derive(Debug, Deserialize, Default, Clone)]
+pub(super) struct AvatarPanelFileConfig {
+    #[serde(alias = "image_path")]
+    pub(super) image: Option<PathBuf>,
+    pub(super) label: Option<String>,
+    pub(super) size: Option<i32>,
+}
+
+#[derive(Debug, Deserialize, Default, Clone)]
+pub(super) struct TextPanelFileConfig {
+    pub(super) variant: Option<String>,
+    pub(super) title: Option<String>,
+    pub(super) body: Option<String>,
+    pub(super) badge: Option<String>,
+    pub(super) min_height: Option<i32>,
+}
+
+#[derive(Debug, Deserialize, Default, Clone)]
+pub(super) struct SearchPanelFileConfig {
+    pub(super) title: Option<String>,
+    pub(super) placeholder: Option<String>,
+    pub(super) min_height: Option<i32>,
 }
 
 #[derive(Debug, Deserialize)]

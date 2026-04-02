@@ -71,65 +71,126 @@
   border-color: rgba(245, 214, 148, 0.5);
 }
 
-.launcher-header-banner {
-  min-height: 188px;
-  padding: 22px 24px;
+.launcher-top-banner {
+  margin-bottom: 4px;
+  padding: 18px 22px;
   border-radius: 28px;
-  background-image: linear-gradient(135deg, #8f655f 0%, #b8775b 55%, #d59a61 100%);
-  color: #fff7ee;
-  border: 1px solid rgba(255, 239, 214, 0.2);
+  background-image: linear-gradient(135deg, rgba(143, 101, 95, 0.96) 0%, rgba(184, 119, 91, 0.95) 52%, rgba(213, 154, 97, 0.93) 100%);
+  border: 1px solid rgba(255, 239, 214, 0.22);
 }
 
-.header-avatar {
+.launcher-top-panels-column {
+  min-width: 0;
+}
+
+.launcher-top-panels-column-secondary {
+  padding-left: 6px;
+}
+
+.launcher-profile-group {
+  min-width: 0;
+}
+
+.launcher-top-panel {
+  padding: 14px 16px;
+  border-radius: 22px;
+  border: 1px solid rgba(255, 240, 213, 0.14);
+}
+
+.launcher-avatar-panel {
+  padding: 0;
+  border: none;
+  background: transparent;
+}
+
+.launcher-avatar-frame {
   border-radius: 999px;
-  background: rgba(255, 249, 239, 0.16);
-  color: #fff4e5;
-  border: 2px solid rgba(255, 244, 221, 0.45);
+  background: linear-gradient(180deg, rgba(255, 244, 226, 0.96) 0%, rgba(236, 218, 195, 0.98) 100%);
+  border: 4px solid rgba(255, 248, 235, 0.76);
 }
 
-.launcher-header-title {
-  color: #fff8f0;
-  font-size: 30px;
+.launcher-avatar-picture {
+  border-radius: 999px;
+}
+
+.launcher-avatar-fallback {
+  color: #765348;
+  font-size: 34px;
+  font-weight: 900;
+}
+
+.launcher-text-panel {
+  background: rgba(255, 248, 237, 0.16);
+}
+
+.launcher-text-panel-hero {
+  padding: 10px 8px 10px 2px;
+  background: transparent;
+  border: none;
+}
+
+.launcher-text-panel-card {
+  background: rgba(255, 248, 237, 0.74);
+  border-color: rgba(255, 239, 214, 0.18);
+}
+
+.launcher-text-panel-badge {
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: rgba(76, 51, 50, 0.18);
+  color: rgba(255, 246, 231, 0.94);
+  font-size: 12px;
   font-weight: 800;
 }
 
-.launcher-header-subtitle {
+.launcher-text-panel-title {
+  color: #fff8f0;
+  font-size: 24px;
+  font-weight: 800;
+}
+
+.launcher-text-panel-title-hero {
+  font-size: 30px;
+}
+
+.launcher-text-panel-body {
   color: rgba(255, 246, 232, 0.94);
-  font-size: 15px;
+  font-size: 14px;
   font-weight: 600;
 }
 
-.launcher-header-action-button {
-  min-width: 64px;
-  min-height: 38px;
-  padding: 0 10px;
-  border-radius: 14px;
-  background: rgba(76, 51, 50, 0.22);
-  color: #fff7ec;
-  border: 1px solid rgba(255, 237, 207, 0.22);
+.launcher-text-panel-card .launcher-text-panel-title {
+  color: #4b342f;
+  font-size: 18px;
 }
 
-.launcher-header-action-button:hover {
-  background: rgba(76, 51, 50, 0.32);
+.launcher-text-panel-card .launcher-text-panel-body {
+  color: rgba(74, 52, 46, 0.82);
 }
 
-.launcher-header-stat {
-  padding: 12px 14px;
-  border-radius: 18px;
-  background: rgba(71, 46, 44, 0.18);
-  border: 1px solid rgba(255, 238, 212, 0.12);
+.launcher-search-panel {
+  padding: 0;
+  background: rgba(255, 248, 237, 0.18);
+  border: none;
 }
 
-.launcher-header-stat-label {
-  color: rgba(255, 243, 224, 0.82);
-  font-size: 12px;
-  font-weight: 700;
-}
-
-.launcher-header-stat-value {
-  color: #fff8ef;
-  font-size: 20px;
+.launcher-search-panel-title {
+  color: rgba(255, 246, 231, 0.94);
+  font-size: 13px;
   font-weight: 800;
+}
+
+.launcher-search-entry {
+  min-height: 44px;
+  padding: 0 14px;
+  border-radius: 18px;
+  background: rgba(255, 251, 245, 0.96);
+  color: #47342f;
+  border: 1px solid rgba(157, 124, 92, 0.16);
+}
+
+.launcher-search-entry:focus {
+  border-color: rgba(197, 140, 103, 0.55);
 }
 
 .launcher-grid-scroller {

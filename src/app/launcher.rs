@@ -8,6 +8,7 @@ use gtk4_layer_shell::{Edge, KeyboardMode, Layer, LayerShell};
 
 use super::catalog::DesktopAppCatalog;
 use super::navigation::LauncherNavigator;
+use super::pages::AllAppsPageState;
 use super::quick_access::QuickAccessState;
 use crate::config::{ButtonConfig, LauncherConfig, MenuAction};
 use crate::hyprland::{HyprlandContext, preferred_monitor};
@@ -81,10 +82,6 @@ impl LauncherWindow {
         self.window.present();
     }
 
-    pub(crate) fn window(&self) -> &ApplicationWindow {
-        &self.window
-    }
-
     pub(crate) fn bind_button_action(
         &self,
         widget: &Button,
@@ -133,7 +130,7 @@ impl LauncherWindow {
     }
 
     pub(crate) fn sidebar_middle_spacer_height(&self) -> i32 {
-        (self.config().header().height() + self.config().grid().spacing()
+        (self.visible_top_panels_height() + self.config().grid().spacing()
             - self.sidebar_button_size()
             + self.config().sidebar().middle_offset())
         .max(0)
@@ -162,12 +159,22 @@ impl LauncherWindow {
             .round()
             .max(56.0) as i32;
         let sidebar_margins = config.sidebar().inner_margin() * 2;
-        let panel_margins = 8 + config.header().outer_margin();
+        let panel_margins = 8 + config.top_panels().outer_margin();
         let columns = config.grid().columns().max(1);
         let grid_width =
             (config.grid().tile_size() * columns) + (config.grid().spacing() * (columns - 1));
 
         sidebar_width + sidebar_margins + panel_margins + grid_width + 24
+    }
+
+    fn visible_top_panels_height(&self) -> i32 {
+        if self.config().top_panels().left_panels().is_empty()
+            && self.config().top_panels().right_panels().is_empty()
+        {
+            0
+        } else {
+            self.config().top_panels().height()
+        }
     }
 
     fn mount_content(&self) {
@@ -183,14 +190,20 @@ impl LauncherWindow {
             self.config.clone(),
             &self.window,
         );
+        let all_apps = AllAppsPageState::new(
+            catalog,
+            quick_access.clone(),
+            self.config.clone(),
+            &self.window,
+        );
         let content_stack = Stack::new();
         let navigator = LauncherNavigator::new(&content_stack);
-        self.populate_content_stack(&content_stack, &catalog, &quick_access);
+        self.populate_content_stack(&content_stack, &quick_access, &all_apps);
 
         let root = GtkBox::new(gtk4::Orientation::Horizontal, 0);
         root.add_css_class("launcher-root");
         root.append(&self.build_sidebar_nav(&navigator));
-        root.append(&self.build_right_panel(&content_stack));
+        root.append(&self.build_right_panel(&content_stack, &navigator, &all_apps));
         navigator.activate_section(&self.initial_section_id());
         root
     }

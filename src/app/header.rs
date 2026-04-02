@@ -1,103 +1,257 @@
 use gtk4::prelude::*;
-use gtk4::{Align, Box as GtkBox, Button, Label, Orientation, Stack};
+use gtk4::{
+    Align, Box as GtkBox, ContentFit, Label, Orientation, Overflow, Picture, SearchEntry, Stack,
+    Widget,
+};
 
 use super::launcher::LauncherWindow;
-use crate::config::{ButtonConfig, HeaderStatConfig};
+use super::navigation::LauncherNavigator;
+use super::pages::AllAppsPageState;
+use crate::config::{
+    AvatarPanelConfig, SearchPanelConfig, TextPanelConfig, TextPanelVariant, TopPanelConfig,
+};
 
 impl LauncherWindow {
-    pub(super) fn build_right_panel(&self, content_stack: &Stack) -> GtkBox {
+    pub(super) fn build_right_panel(
+        &self,
+        content_stack: &Stack,
+        navigator: &LauncherNavigator,
+        all_apps: &AllAppsPageState,
+    ) -> GtkBox {
         let panel = GtkBox::new(Orientation::Vertical, self.config().grid().spacing());
         panel.add_css_class("launcher-right-panel");
         panel.set_hexpand(true);
         panel.set_vexpand(true);
-        panel.set_margin_top(self.config().header().outer_margin());
-        panel.set_margin_bottom(self.config().header().outer_margin());
+        panel.set_margin_top(self.config().top_panels().outer_margin());
+        panel.set_margin_bottom(self.config().top_panels().outer_margin());
         panel.set_margin_start(8);
-        panel.set_margin_end(self.config().header().outer_margin());
+        panel.set_margin_end(self.config().top_panels().outer_margin());
 
-        panel.append(&self.build_header_banner());
+        if let Some(top_panels) = self.build_top_panels(navigator, all_apps) {
+            panel.append(&top_panels);
+        }
+
         panel.append(content_stack);
         panel
     }
 
-    fn build_header_banner(&self) -> GtkBox {
-        let banner = GtkBox::new(Orientation::Vertical, self.config().header().spacing());
-        banner.set_hexpand(true);
-        banner.set_height_request(self.config().header().height());
-        banner.add_css_class("launcher-header-banner");
-
-        let top_row = GtkBox::new(Orientation::Horizontal, self.config().header().spacing());
-        let identity = GtkBox::new(Orientation::Horizontal, self.config().header().spacing());
-        let text_column = GtkBox::new(Orientation::Vertical, 6);
-        let actions = GtkBox::new(Orientation::Horizontal, 8);
-
-        let avatar = Button::with_label("Avatar");
-        avatar.set_width_request(84);
-        avatar.set_height_request(84);
-        avatar.add_css_class("header-avatar");
-
-        let title = Label::new(Some(self.config().header().title()));
-        title.set_halign(Align::Start);
-        title.set_xalign(0.0);
-        title.add_css_class("title-1");
-        title.add_css_class("launcher-header-title");
-
-        let subtitle = Label::new(Some(self.config().header().subtitle()));
-        subtitle.set_halign(Align::Start);
-        subtitle.set_xalign(0.0);
-        subtitle.set_wrap(true);
-        subtitle.add_css_class("launcher-header-subtitle");
-
-        text_column.set_hexpand(true);
-        text_column.append(&title);
-        text_column.append(&subtitle);
-
-        identity.set_hexpand(true);
-        identity.append(&avatar);
-        identity.append(&text_column);
-
-        for button in self.config().header().action_buttons() {
-            actions.append(&self.build_header_action_button(button));
+    fn build_top_panels(
+        &self,
+        navigator: &LauncherNavigator,
+        all_apps: &AllAppsPageState,
+    ) -> Option<GtkBox> {
+        if self.config().top_panels().left_panels().is_empty()
+            && self.config().top_panels().right_panels().is_empty()
+        {
+            return None;
         }
 
-        top_row.append(&identity);
-        top_row.append(&actions);
-
-        let stats_row = GtkBox::new(Orientation::Horizontal, self.config().header().spacing());
-        for stat in self.config().header().stats() {
-            stats_row.append(&self.build_header_stat(stat));
-        }
-
-        banner.append(&top_row);
-        banner.append(&stats_row);
-        banner
-    }
-
-    fn build_header_action_button(&self, button: &ButtonConfig) -> Button {
-        let widget = Button::with_label(button.label());
-        widget.add_css_class("launcher-header-action-button");
-        widget.set_tooltip_text(Some(&LauncherWindow::button_tooltip(button)));
-        self.bind_button_action(&widget, button, None);
-        widget
-    }
-
-    fn build_header_stat(&self, stat: &HeaderStatConfig) -> GtkBox {
-        let container = GtkBox::new(Orientation::Vertical, 4);
-        let label = Label::new(Some(stat.label()));
-        let value = Label::new(Some(stat.value()));
-        container.add_css_class("launcher-header-stat");
-        label.add_css_class("launcher-header-stat-label");
-
-        label.set_halign(Align::Start);
-        label.set_xalign(0.0);
-        value.set_halign(Align::Start);
-        value.set_xalign(0.0);
-        value.add_css_class("title-4");
-        value.add_css_class("launcher-header-stat-value");
-
+        let container = GtkBox::new(
+            Orientation::Horizontal,
+            self.config().top_panels().spacing(),
+        );
+        container.add_css_class("launcher-top-banner");
         container.set_hexpand(true);
-        container.append(&label);
-        container.append(&value);
-        container
+        container.set_height_request(self.config().top_panels().height());
+
+        if !self.config().top_panels().left_panels().is_empty() {
+            let left_column = self.build_top_panel_column(
+                self.config().top_panels().left_panels(),
+                navigator,
+                all_apps,
+                true,
+            );
+            container.append(&left_column);
+        }
+
+        if !self.config().top_panels().right_panels().is_empty() {
+            let right_column = self.build_top_panel_column(
+                self.config().top_panels().right_panels(),
+                navigator,
+                all_apps,
+                self.config().top_panels().left_panels().is_empty(),
+            );
+            container.append(&right_column);
+        }
+
+        Some(container)
+    }
+
+    fn build_top_panel_column(
+        &self,
+        panels: &[TopPanelConfig],
+        navigator: &LauncherNavigator,
+        all_apps: &AllAppsPageState,
+        is_primary: bool,
+    ) -> GtkBox {
+        let column = GtkBox::new(Orientation::Vertical, self.config().top_panels().spacing());
+        let mut index = 0;
+
+        column.add_css_class("launcher-top-panels-column");
+        if is_primary {
+            column.add_css_class("launcher-top-panels-column-primary");
+            column.set_hexpand(true);
+        } else {
+            column.add_css_class("launcher-top-panels-column-secondary");
+            column.set_width_request(280);
+        }
+
+        while index < panels.len() {
+            column.append(&self.build_top_panel_widget(&panels[index], navigator, all_apps));
+            index += 1;
+        }
+
+        column
+    }
+
+    fn build_top_panel_widget(
+        &self,
+        panel: &TopPanelConfig,
+        navigator: &LauncherNavigator,
+        all_apps: &AllAppsPageState,
+    ) -> Widget {
+        match panel {
+            TopPanelConfig::Avatar(config) => self.build_avatar_panel(config).upcast(),
+            TopPanelConfig::Text(config) => self.build_text_panel(config).upcast(),
+            TopPanelConfig::Search(config) => self
+                .build_search_panel(config, navigator, all_apps)
+                .upcast(),
+        }
+    }
+
+    fn build_avatar_panel(&self, config: &AvatarPanelConfig) -> GtkBox {
+        let panel = GtkBox::new(Orientation::Vertical, 0);
+        let frame = GtkBox::new(Orientation::Vertical, 0);
+
+        panel.add_css_class("launcher-top-panel");
+        panel.add_css_class("launcher-avatar-panel");
+        panel.set_width_request(config.size() + 8);
+        panel.set_vexpand(false);
+        panel.set_valign(Align::Start);
+
+        frame.add_css_class("launcher-avatar-frame");
+        frame.set_halign(Align::Start);
+        frame.set_valign(Align::Start);
+        frame.set_width_request(config.size());
+        frame.set_height_request(config.size());
+        frame.set_overflow(Overflow::Hidden);
+
+        if let Some(image_path) = config.image_path() {
+            let picture = Picture::for_filename(image_path);
+            picture.add_css_class("launcher-avatar-picture");
+            picture.set_can_shrink(true);
+            picture.set_content_fit(ContentFit::Cover);
+            picture.set_width_request(config.size());
+            picture.set_height_request(config.size());
+            frame.append(&picture);
+        } else {
+            let fallback = Label::new(Some(&self.avatar_fallback_text(config.label())));
+            fallback.add_css_class("launcher-avatar-fallback");
+            fallback.set_halign(Align::Center);
+            fallback.set_valign(Align::Center);
+            frame.append(&fallback);
+        }
+
+        panel.append(&frame);
+        panel
+    }
+
+    fn build_text_panel(&self, config: &TextPanelConfig) -> GtkBox {
+        let panel = GtkBox::new(Orientation::Vertical, 8);
+
+        panel.add_css_class("launcher-top-panel");
+        panel.add_css_class("launcher-text-panel");
+        panel.set_hexpand(true);
+        panel.set_vexpand(false);
+        panel.set_valign(Align::Start);
+        panel.set_height_request(config.min_height());
+
+        if config.variant() == TextPanelVariant::Hero {
+            panel.add_css_class("launcher-text-panel-hero");
+        } else {
+            panel.add_css_class("launcher-text-panel-card");
+        }
+
+        if let Some(badge) = config.badge() {
+            let badge_label = Label::new(Some(badge));
+            badge_label.add_css_class("launcher-text-panel-badge");
+            badge_label.set_halign(Align::Start);
+            badge_label.set_xalign(0.0);
+            panel.append(&badge_label);
+        }
+
+        if let Some(title) = config.title() {
+            let title_label = Label::new(Some(title));
+            title_label.set_halign(Align::Start);
+            title_label.set_xalign(0.0);
+            title_label.set_wrap(true);
+            title_label.add_css_class("launcher-text-panel-title");
+            if config.variant() == TextPanelVariant::Hero {
+                title_label.add_css_class("launcher-text-panel-title-hero");
+            }
+            panel.append(&title_label);
+        }
+
+        if let Some(body) = config.body() {
+            let body_label = Label::new(Some(body));
+            body_label.set_halign(Align::Start);
+            body_label.set_xalign(0.0);
+            body_label.set_wrap(true);
+            body_label.add_css_class("launcher-text-panel-body");
+            panel.append(&body_label);
+        }
+
+        panel
+    }
+
+    fn build_search_panel(
+        &self,
+        config: &SearchPanelConfig,
+        navigator: &LauncherNavigator,
+        all_apps: &AllAppsPageState,
+    ) -> GtkBox {
+        let panel = GtkBox::new(Orientation::Vertical, 8);
+        let search = SearchEntry::new();
+
+        panel.add_css_class("launcher-top-panel");
+        panel.add_css_class("launcher-search-panel");
+        panel.set_hexpand(true);
+        panel.set_vexpand(false);
+        panel.set_valign(Align::Start);
+        panel.set_height_request(config.min_height());
+
+        if let Some(title) = config.title() {
+            let title_label = Label::new(Some(title));
+            title_label.add_css_class("launcher-search-panel-title");
+            title_label.set_halign(Align::Start);
+            title_label.set_xalign(0.0);
+            panel.append(&title_label);
+        }
+
+        search.add_css_class("launcher-search-entry");
+        search.set_hexpand(true);
+        search.set_width_chars(24);
+        search.set_placeholder_text(Some(config.placeholder()));
+
+        let navigator = navigator.clone();
+        let all_apps = all_apps.clone();
+        search.connect_search_changed(move |entry| {
+            let text = entry.text().to_string();
+            all_apps.set_query(&text);
+            if !text.trim().is_empty() {
+                navigator.activate_section("all");
+            }
+        });
+
+        panel.append(&search);
+        panel
+    }
+
+    fn avatar_fallback_text(&self, label: &str) -> String {
+        label
+            .chars()
+            .next()
+            .map(|ch| ch.to_uppercase().to_string())
+            .unwrap_or_else(|| "?".to_owned())
     }
 }

@@ -4,4 +4,7 @@ mod load;
 mod model;
 
 pub use self::error::ConfigError;
-pub use self::model::{ButtonConfig, HeaderStatConfig, LauncherConfig, MenuAction};
+pub use self::model::{
+    AvatarPanelConfig, ButtonConfig, LauncherConfig, MenuAction, SearchPanelConfig,
+    TextPanelConfig, TextPanelVariant, TopPanelConfig,
+};

@@ -1,11 +1,14 @@
 use std::env;
 use std::path::{Path, PathBuf};
 
-use super::file::{ButtonFileConfig, LauncherFileConfig, SidebarButtonFileEntry};
+use super::file::{
+    AvatarPanelFileConfig, ButtonFileConfig, LauncherFileConfig, SearchPanelFileConfig,
+    SidebarButtonFileEntry, TextPanelFileConfig, TopPanelFileConfig,
+};
 use super::model::{
-    ButtonConfig, GridSectionConfig, HeaderBannerConfig, HeaderStatConfig, LauncherConfig,
-    MenuAction, SidebarConfig, SidebarMetrics, SidebarSizing, SidebarSpacing, ThemeConfig,
-    WindowConfig,
+    AvatarPanelConfig, ButtonConfig, GridSectionConfig, LauncherConfig, MenuAction,
+    SearchPanelConfig, SidebarConfig, SidebarMetrics, SidebarSizing, SidebarSpacing,
+    TextPanelConfig, TextPanelVariant, ThemeConfig, TopPanelConfig, TopPanelsConfig, WindowConfig,
 };
 
 impl LauncherConfig {
@@ -71,6 +74,39 @@ impl LauncherConfig {
                 .set_button_bg_opacity(button_bg_opacity.clamp(0.0, 1.0));
         }
 
+        if let Some(height) = file_config.top_panels.height {
+            self.top_panels_mut().set_height(height.clamp(84, 320));
+        }
+
+        if let Some(spacing) = file_config.top_panels.spacing {
+            self.top_panels_mut().set_spacing(spacing.clamp(0, 32));
+        }
+
+        if let Some(outer_margin) = file_config.top_panels.outer_margin {
+            self.top_panels_mut()
+                .set_outer_margin(outer_margin.clamp(0, 48));
+        }
+
+        if !file_config.top_panels.left.is_empty() {
+            let panels = file_config
+                .top_panels
+                .left
+                .into_iter()
+                .map(|panel| top_panel_config_from_file(panel, config_dir))
+                .collect();
+            self.top_panels_mut().set_left_panels(panels);
+        }
+
+        if !file_config.top_panels.right.is_empty() {
+            let panels = file_config
+                .top_panels
+                .right
+                .into_iter()
+                .map(|panel| top_panel_config_from_file(panel, config_dir))
+                .collect();
+            self.top_panels_mut().set_right_panels(panels);
+        }
+
         if let Some(top_button) = file_config.sidebar.top_button {
             apply_button_file_config(self.sidebar_mut().top_button_mut(), top_button, config_dir);
         }
@@ -116,7 +152,13 @@ impl Default for LauncherConfig {
             "com.qrzbing.hyw-menu-gtk4".to_owned(),
             default_config_dir().join("quick-access.toml"),
             ThemeConfig::new(None, None),
-            WindowConfig::new("hyw-menu".to_owned(), "hyw-menu".to_owned(), 560, 0.34, 0.82),
+            WindowConfig::new(
+                "hyw-menu".to_owned(),
+                "hyw-menu".to_owned(),
+                560,
+                0.34,
+                0.82,
+            ),
             SidebarConfig::new(
                 SidebarMetrics::new(
                     SidebarSizing::new(96, 1.0, 0.82, 1.0),
@@ -167,35 +209,7 @@ impl Default for LauncherConfig {
                     MenuAction::None,
                 ),
             ),
-            HeaderBannerConfig::new(
-                212,
-                14,
-                24,
-                "Start Menu".to_owned(),
-                "Game-style header placeholder. This area can later map to profile, greeting, and system status."
-                    .to_owned(),
-                vec![
-                    HeaderStatConfig::new("Recent Apps".to_owned(), "12".to_owned()),
-                    HeaderStatConfig::new("Favorites".to_owned(), "8".to_owned()),
-                    HeaderStatConfig::new("System Status".to_owned(), "Normal".to_owned()),
-                ],
-                vec![
-                    ButtonConfig::new(
-                        "edit".to_owned(),
-                        "Edit".to_owned(),
-                        Some("document-edit-symbolic".to_owned()),
-                        None,
-                        MenuAction::None,
-                    ),
-                    ButtonConfig::new(
-                        "notify".to_owned(),
-                        "Alerts".to_owned(),
-                        Some("preferences-system-notifications-symbolic".to_owned()),
-                        None,
-                        MenuAction::None,
-                    ),
-                ],
-            ),
+            TopPanelsConfig::new(212, 14, 24, Vec::new(), Vec::new()),
             GridSectionConfig::new(
                 12,
                 4,
@@ -240,6 +254,59 @@ fn sidebar_button_config(label: &str) -> ButtonConfig {
         None,
         None,
         MenuAction::OpenSection(id),
+    )
+}
+
+fn top_panel_config_from_file(
+    panel: TopPanelFileConfig,
+    config_dir: Option<&Path>,
+) -> TopPanelConfig {
+    match panel {
+        TopPanelFileConfig::Avatar(config) => {
+            TopPanelConfig::Avatar(avatar_panel_config_from_file(config, config_dir))
+        }
+        TopPanelFileConfig::Text(config) => {
+            TopPanelConfig::Text(text_panel_config_from_file(config))
+        }
+        TopPanelFileConfig::Search(config) => {
+            TopPanelConfig::Search(search_panel_config_from_file(config))
+        }
+    }
+}
+
+fn avatar_panel_config_from_file(
+    config: AvatarPanelFileConfig,
+    config_dir: Option<&Path>,
+) -> AvatarPanelConfig {
+    let label = config.label.unwrap_or_else(|| "Avatar".to_owned());
+    let image_path = resolve_config_path(config_dir, config.image);
+    let size = config.size.unwrap_or(96).clamp(48, 160);
+
+    AvatarPanelConfig::new(image_path, label, size)
+}
+
+fn text_panel_config_from_file(config: TextPanelFileConfig) -> TextPanelConfig {
+    let variant = match config.variant.as_deref() {
+        Some("hero") => TextPanelVariant::Hero,
+        _ => TextPanelVariant::Card,
+    };
+
+    TextPanelConfig::new(
+        variant,
+        config.title,
+        config.body,
+        config.badge,
+        config.min_height.unwrap_or(72).clamp(48, 200),
+    )
+}
+
+fn search_panel_config_from_file(config: SearchPanelFileConfig) -> SearchPanelConfig {
+    SearchPanelConfig::new(
+        config.title,
+        config
+            .placeholder
+            .unwrap_or_else(|| "search all applications".to_owned()),
+        config.min_height.unwrap_or(72).clamp(48, 160),
     )
 }
 
