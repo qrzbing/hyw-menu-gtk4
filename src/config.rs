@@ -17,6 +17,8 @@ pub struct WindowConfig {
     pub title: String,
     pub namespace: String,
     pub min_width: i32,
+    pub width_ratio: f32,
+    pub height_ratio: f32,
 }
 
 #[derive(Debug, Clone)]
@@ -55,8 +57,7 @@ pub struct HeaderStatConfig {
 pub struct GridSectionConfig {
     pub spacing: i32,
     pub columns: i32,
-    pub tile_width: i32,
-    pub tile_height: i32,
+    pub tile_size: i32,
     pub buttons: Vec<ButtonConfig>,
 }
 
@@ -108,9 +109,18 @@ impl std::error::Error for ConfigError {}
 #[derive(Debug, Deserialize, Default)]
 struct LauncherFileConfig {
     #[serde(default)]
+    window: WindowFileConfig,
+    #[serde(default)]
     sidebar: SidebarFileConfig,
     #[serde(default)]
     grid: GridFileConfig,
+}
+
+#[derive(Debug, Deserialize, Default)]
+struct WindowFileConfig {
+    min_width: Option<i32>,
+    width_ratio: Option<f32>,
+    height_ratio: Option<f32>,
 }
 
 #[derive(Debug, Deserialize, Default)]
@@ -129,6 +139,9 @@ struct SidebarFileConfig {
 
 #[derive(Debug, Deserialize, Default)]
 struct GridFileConfig {
+    tile_size: Option<i32>,
+    tile_width: Option<i32>,
+    tile_height: Option<i32>,
     #[serde(default)]
     cards: Vec<String>,
 }
@@ -171,6 +184,18 @@ impl LauncherConfig {
     }
 
     fn apply_file_config(&mut self, file_config: LauncherFileConfig, config_dir: Option<&Path>) {
+        if let Some(min_width) = file_config.window.min_width {
+            self.window.min_width = min_width.max(320);
+        }
+
+        if let Some(width_ratio) = file_config.window.width_ratio {
+            self.window.width_ratio = width_ratio.clamp(0.25, 0.5);
+        }
+
+        if let Some(height_ratio) = file_config.window.height_ratio {
+            self.window.height_ratio = height_ratio.clamp(0.5, 0.95);
+        }
+
         if let Some(width) = file_config.sidebar.width {
             self.sidebar.width = width.max(56);
         }
@@ -211,6 +236,11 @@ impl LauncherConfig {
                 .into_iter()
                 .map(|label| grid_button_config(&label))
                 .collect();
+        }
+
+        let legacy_tile_size = file_config.grid.tile_width.or(file_config.grid.tile_height);
+        if let Some(tile_size) = file_config.grid.tile_size.or(legacy_tile_size) {
+            self.grid.tile_size = tile_size.clamp(72, 192);
         }
     }
 }
@@ -400,7 +430,9 @@ impl Default for LauncherConfig {
             window: WindowConfig {
                 title: "hyw-menu".to_string(),
                 namespace: "hyw-menu".to_string(),
-                min_width: 320,
+                min_width: 560,
+                width_ratio: 0.34,
+                height_ratio: 0.82,
             },
             sidebar: SidebarConfig {
                 width: 96,
@@ -500,8 +532,7 @@ impl Default for LauncherConfig {
             grid: GridSectionConfig {
                 spacing: 12,
                 columns: 4,
-                tile_width: 120,
-                tile_height: 96,
+                tile_size: 96,
                 buttons: vec![ButtonConfig {
                     id: "applications".to_string(),
                     label: "Applications".to_string(),

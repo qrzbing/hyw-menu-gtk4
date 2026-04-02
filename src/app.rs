@@ -3,12 +3,12 @@ use std::rc::Rc;
 use std::sync::Arc;
 
 use gtk4::gdk::{self, Display};
+use gtk4::gio::{self, AppInfo};
 use gtk4::glib::Propagation;
 use gtk4::prelude::*;
 use gtk4::{
-    Align, Application, ApplicationWindow, Box as GtkBox, Button, ContentFit, Entry,
-    EventControllerKey, FlowBox, Grid, Image, Label, Orientation, Picture, ScrolledWindow, Stack,
-    StackTransitionType, Widget,
+    Align, Application, ApplicationWindow, Box as GtkBox, Button, ContentFit, EventControllerKey,
+    Grid, Image, Label, Orientation, Picture, ScrolledWindow, Stack, StackTransitionType, Widget,
 };
 use gtk4_layer_shell::{Edge, KeyboardMode, Layer, LayerShell};
 
@@ -18,64 +18,13 @@ use crate::config::{
 use crate::hyprland::{HyprlandContext, preferred_monitor};
 use crate::style::install_global_css;
 
-const ALL_APPS_PLACEHOLDERS: &[(&str, &str, &str)] = &[
-    (
-        "Terminal",
-        "utilities-terminal-symbolic",
-        "Command line and terminal tools",
-    ),
-    (
-        "Browser",
-        "web-browser-symbolic",
-        "Web browsing and web apps",
-    ),
-    (
-        "Files",
-        "system-file-manager-symbolic",
-        "File management and directory browsing",
-    ),
-    (
-        "Settings",
-        "preferences-system-symbolic",
-        "System settings and device options",
-    ),
-    (
-        "Editor",
-        "accessories-text-editor-symbolic",
-        "Code and text editing",
-    ),
-    (
-        "Music",
-        "multimedia-player-symbolic",
-        "Music and audio playback",
-    ),
-    ("Video", "video-display-symbolic", "Video and display tools"),
-    (
-        "Archive",
-        "package-x-generic-symbolic",
-        "Archive and compression tools",
-    ),
-    (
-        "Monitor",
-        "utilities-system-monitor-symbolic",
-        "System monitoring and resource usage",
-    ),
-    (
-        "Network",
-        "network-workgroup-symbolic",
-        "Network and connectivity",
-    ),
-    (
-        "Calendar",
-        "x-office-calendar-symbolic",
-        "Schedule and reminders",
-    ),
-    (
-        "Image",
-        "image-x-generic-symbolic",
-        "Image viewing and organization",
-    ),
-];
+#[derive(Clone)]
+struct DesktopAppEntry {
+    app_info: AppInfo,
+    id: String,
+    name: String,
+    description: Option<String>,
+}
 
 #[derive(Clone)]
 struct LauncherNavigator {
@@ -159,12 +108,11 @@ pub struct LauncherWindow {
 
 impl LauncherWindow {
     pub fn new(app: &Application, monitor: &gdk::Monitor, config: Arc<LauncherConfig>) -> Self {
-        let geometry = monitor.geometry();
         let window = ApplicationWindow::builder()
             .application(app)
             .title(&config.window.title)
             .default_width(Self::preferred_width(monitor, &config))
-            .default_height(geometry.height())
+            .default_height(Self::preferred_height(monitor, &config))
             .build();
 
         let launcher_window = Self { window, config };
@@ -179,7 +127,27 @@ impl LauncherWindow {
     }
 
     fn preferred_width(monitor: &gdk::Monitor, config: &LauncherConfig) -> i32 {
-        (monitor.geometry().width() / 4).max(config.window.min_width)
+        let ratio_width =
+            ((monitor.geometry().width() as f32) * config.window.width_ratio).round() as i32;
+        ratio_width
+            .max(config.window.min_width)
+            .max(Self::minimum_required_width(config))
+    }
+
+    fn preferred_height(monitor: &gdk::Monitor, config: &LauncherConfig) -> i32 {
+        ((monitor.geometry().height() as f32) * config.window.height_ratio).round() as i32
+    }
+
+    fn minimum_required_width(config: &LauncherConfig) -> i32 {
+        let sidebar_width = ((config.sidebar.width as f32) * config.sidebar.scale)
+            .round()
+            .max(56.0) as i32;
+        let sidebar_margins = config.sidebar.inner_margin * 2;
+        let panel_margins = 8 + config.header.outer_margin;
+        let columns = config.grid.columns.max(1);
+        let grid_width = (config.grid.tile_size * columns) + (config.grid.spacing * (columns - 1));
+
+        sidebar_width + sidebar_margins + panel_margins + grid_width + 24
     }
 
     fn mount_content(&self) {
@@ -412,18 +380,13 @@ impl LauncherWindow {
     }
 
     fn build_all_apps_page(&self) -> GtkBox {
+        let apps = self.collect_desktop_apps();
         let page = GtkBox::new(Orientation::Vertical, 12);
         page.add_css_class("launcher-page");
         page.add_css_class("launcher-all-apps-page");
         page.set_hexpand(true);
         page.set_vexpand(true);
-        page.append(&self.build_page_intro(
-            "All Apps",
-            "This page follows the launcher structure of nwg-menu / nwg-drawer for now, using placeholder apps until desktop data is wired in.",
-            "Menu",
-        ));
-        page.append(&self.build_all_apps_toolbar());
-        page.append(&self.build_all_apps_scroller());
+        page.append(&self.build_all_apps_scroller(&apps));
         page
     }
 
@@ -459,29 +422,7 @@ impl LauncherWindow {
         container
     }
 
-    fn build_all_apps_toolbar(&self) -> GtkBox {
-        let container = GtkBox::new(Orientation::Vertical, 10);
-        let search = Entry::new();
-        let filters = GtkBox::new(Orientation::Horizontal, 8);
-
-        search.add_css_class("launcher-search-entry");
-        search.set_placeholder_text(Some(
-            "Search apps (placeholder UI, desktop data will be added later)",
-        ));
-
-        for filter in ["All", "Pinned", "System", "Development"] {
-            let chip = Button::with_label(filter);
-            chip.add_css_class("launcher-filter-chip");
-            filters.append(&chip);
-        }
-
-        container.add_css_class("launcher-all-apps-toolbar");
-        container.append(&search);
-        container.append(&filters);
-        container
-    }
-
-    fn build_all_apps_scroller(&self) -> ScrolledWindow {
+    fn build_all_apps_scroller(&self, apps: &[DesktopAppEntry]) -> ScrolledWindow {
         let scroller = ScrolledWindow::builder()
             .hexpand(true)
             .vexpand(true)
@@ -489,63 +430,125 @@ impl LauncherWindow {
             .build();
         scroller.add_css_class("launcher-apps-scroller");
 
-        let flow = FlowBox::new();
+        let grid = Grid::new();
         let spacing = self.config.grid.spacing.max(0) as u32;
-        flow.set_min_children_per_line(self.config.grid.columns.max(1) as u32);
-        flow.set_max_children_per_line(self.config.grid.columns.max(1) as u32);
-        flow.set_column_spacing(spacing);
-        flow.set_row_spacing(spacing);
-        flow.set_selection_mode(gtk4::SelectionMode::None);
-        flow.set_homogeneous(true);
-        flow.add_css_class("launcher-apps-grid");
+        grid.set_column_spacing(spacing);
+        grid.set_row_spacing(spacing);
+        grid.set_halign(Align::Start);
+        grid.set_valign(Align::Start);
+        grid.set_hexpand(false);
+        grid.set_vexpand(false);
+        grid.add_css_class("launcher-apps-grid");
 
-        for (title, icon_name, subtitle) in ALL_APPS_PLACEHOLDERS {
-            flow.insert(&self.build_all_apps_tile(title, icon_name, subtitle), -1);
+        for (index, app) in apps.iter().enumerate() {
+            let column = (index as i32) % self.config.grid.columns;
+            let row = (index as i32) / self.config.grid.columns;
+            grid.attach(&self.build_all_apps_tile(app), column, row, 1, 1);
         }
 
-        scroller.set_child(Some(&flow));
+        scroller.set_child(Some(&grid));
         scroller
     }
 
-    fn build_all_apps_tile(
-        &self,
-        title_text: &str,
-        icon_name: &str,
-        subtitle_text: &str,
-    ) -> Button {
+    fn build_all_apps_tile(&self, app: &DesktopAppEntry) -> Button {
         let widget = Button::new();
-        let content = GtkBox::new(Orientation::Vertical, 10);
-        let icon = Image::from_icon_name(icon_name);
-        let title = Label::new(Some(title_text));
-        let subtitle = Label::new(Some(subtitle_text));
+        let content = GtkBox::new(Orientation::Vertical, 8);
+        let icon = app
+            .app_info
+            .icon()
+            .map(|icon| Image::from_gicon(&icon))
+            .unwrap_or_else(|| Image::from_icon_name("application-x-executable-symbolic"));
+        let title = Label::new(Some(&Self::truncate_app_title(&app.name, 12)));
 
         widget.add_css_class("launcher-app-tile");
-        widget.set_width_request(self.config.grid.tile_width + 18);
-        widget.set_height_request(self.config.grid.tile_height + 26);
-        widget.set_halign(Align::Fill);
+        widget.set_width_request(self.config.grid.tile_size);
+        widget.set_height_request(self.config.grid.tile_size);
+        widget.set_halign(Align::Start);
         widget.set_valign(Align::Start);
-        widget.set_tooltip_text(Some(title_text));
+        widget.set_hexpand(false);
+        widget.set_vexpand(false);
+        widget.set_tooltip_text(Some(
+            app.description
+                .as_deref()
+                .filter(|description| !description.trim().is_empty())
+                .unwrap_or(&app.name),
+        ));
 
         icon.add_css_class("launcher-app-tile-icon");
-        icon.set_pixel_size(28);
-        icon.set_halign(Align::Start);
+        icon.set_pixel_size(30);
+        icon.set_halign(Align::Center);
+        icon.set_valign(Align::Center);
 
         title.add_css_class("launcher-app-tile-title");
-        title.set_halign(Align::Start);
-        title.set_xalign(0.0);
+        title.set_halign(Align::Center);
+        title.set_xalign(0.5);
+        title.set_wrap(false);
+        title.set_single_line_mode(true);
+        title.set_justify(gtk4::Justification::Center);
+        title.set_width_chars(10);
+        title.set_max_width_chars(10);
 
-        subtitle.add_css_class("launcher-app-tile-subtitle");
-        subtitle.set_wrap(true);
-        subtitle.set_halign(Align::Start);
-        subtitle.set_xalign(0.0);
-
-        content.set_halign(Align::Fill);
+        content.set_halign(Align::Center);
         content.set_valign(Align::Center);
+        content.set_hexpand(true);
+        content.set_vexpand(true);
         content.append(&icon);
         content.append(&title);
-        content.append(&subtitle);
         widget.set_child(Some(&content));
+
+        let app_info = app.app_info.clone();
+        let window = self.window.clone();
+        widget.connect_clicked(move |_| {
+            if let Err(error) = app_info.launch(&[], None::<&gio::AppLaunchContext>) {
+                eprintln!("Failed to launch {}: {error}", app_info.display_name());
+                return;
+            }
+
+            window.close();
+        });
+
         widget
+    }
+
+    fn collect_desktop_apps(&self) -> Vec<DesktopAppEntry> {
+        let mut apps: Vec<_> = AppInfo::all()
+            .into_iter()
+            .filter(|app| app.should_show())
+            .filter_map(|app| {
+                let name = app.display_name().to_string();
+                if name.trim().is_empty() {
+                    return None;
+                }
+
+                let id = app
+                    .id()
+                    .map(|id| id.to_string())
+                    .filter(|id| !id.trim().is_empty())
+                    .unwrap_or_else(|| app.executable().to_string_lossy().to_string());
+
+                Some(DesktopAppEntry {
+                    description: app.description().map(|description| description.to_string()),
+                    app_info: app,
+                    id,
+                    name,
+                })
+            })
+            .collect();
+
+        apps.sort_by_cached_key(|app| app.name.to_lowercase());
+        apps.dedup_by(|left, right| left.id == right.id || left.name == right.name);
+        apps
+    }
+
+    fn truncate_app_title(input: &str, max_chars: usize) -> String {
+        let mut chars = input.chars();
+        let truncated: String = chars.by_ref().take(max_chars).collect();
+
+        if chars.next().is_some() {
+            format!("{truncated}...")
+        } else {
+            truncated
+        }
     }
 
     fn build_grid_section(&self, navigator: &LauncherNavigator) -> ScrolledWindow {
@@ -593,8 +596,8 @@ impl LauncherWindow {
         let icon = Label::new(Some(button.icon_name.as_deref().unwrap_or("icon")));
         let title = Label::new(Some(&button.label));
 
-        widget.set_width_request(grid.tile_width);
-        widget.set_height_request(grid.tile_height);
+        widget.set_width_request(grid.tile_size);
+        widget.set_height_request(grid.tile_size);
         widget.set_halign(Align::Start);
         widget.set_valign(Align::Start);
         widget.set_hexpand(false);
@@ -728,7 +731,7 @@ impl LauncherWindow {
 
         self.window.set_anchor(Edge::Left, true);
         self.window.set_anchor(Edge::Top, true);
-        self.window.set_anchor(Edge::Bottom, true);
+        self.window.set_anchor(Edge::Bottom, false);
         self.window.set_anchor(Edge::Right, false);
 
         self.window.set_margin(Edge::Left, 0);
