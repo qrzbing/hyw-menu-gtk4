@@ -7,10 +7,17 @@ use serde::Deserialize;
 pub struct LauncherConfig {
     pub application_id: String,
     pub quick_access_path: PathBuf,
+    pub theme: ThemeConfig,
     pub window: WindowConfig,
     pub sidebar: SidebarConfig,
     pub header: HeaderBannerConfig,
     pub grid: GridSectionConfig,
+}
+
+#[derive(Debug, Clone)]
+pub struct ThemeConfig {
+    pub font_family: Option<String>,
+    pub font_path: Option<PathBuf>,
 }
 
 #[derive(Debug, Clone)]
@@ -110,11 +117,19 @@ impl std::error::Error for ConfigError {}
 #[derive(Debug, Deserialize, Default)]
 struct LauncherFileConfig {
     #[serde(default)]
+    theme: ThemeFileConfig,
+    #[serde(default)]
     window: WindowFileConfig,
     #[serde(default)]
     sidebar: SidebarFileConfig,
     #[serde(default)]
     grid: GridFileConfig,
+}
+
+#[derive(Debug, Deserialize, Default)]
+struct ThemeFileConfig {
+    font_family: Option<String>,
+    font_path: Option<PathBuf>,
 }
 
 #[derive(Debug, Deserialize, Default)]
@@ -187,6 +202,15 @@ impl LauncherConfig {
     }
 
     fn apply_file_config(&mut self, file_config: LauncherFileConfig, config_dir: Option<&Path>) {
+        if let Some(font_family) = file_config.theme.font_family {
+            let trimmed = font_family.trim();
+            self.theme.font_family = (!trimmed.is_empty()).then(|| trimmed.to_string());
+        }
+
+        if let Some(font_path) = resolve_config_path(config_dir, file_config.theme.font_path) {
+            self.theme.font_path = Some(font_path);
+        }
+
         if let Some(min_width) = file_config.window.min_width {
             self.window.min_width = min_width.max(320);
         }
@@ -442,6 +466,10 @@ impl Default for LauncherConfig {
         Self {
             application_id: "com.qrzbing.hyw-menu-gtk4".to_string(),
             quick_access_path: default_config_dir().join("quick-access.toml"),
+            theme: ThemeConfig {
+                font_family: None,
+                font_path: None,
+            },
             window: WindowConfig {
                 title: "hyw-menu".to_string(),
                 namespace: "hyw-menu".to_string(),
