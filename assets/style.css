@@ -7,7 +7,7 @@
   padding: 18px 10px;
   border-radius: 0;
   background: linear-gradient(180deg, #4c5f76 0%, #3e4d61 100%);
-  border: 1px solid rgba(247, 232, 206, 0.2);
+  border: none;
 }
 
 .launcher-right-panel {
@@ -127,7 +127,7 @@
 .launcher-profile-panel {
   padding: 0;
   background: rgba(255, 248, 237, 0.12);
-  border-color: rgba(255, 239, 214, 0.16);
+  border: none;
 }
 
 .launcher-profile-background {
@@ -285,13 +285,13 @@
 }
 
 .launcher-grid-scroller {
-  padding: 4px 2px 4px 0;
+  padding: 4px 0 4px 0;
   border-radius: 0;
   background: rgba(249, 241, 228, 0.72);
 }
 
 .launcher-page {
-  padding-right: 4px;
+  padding-right: 0;
 }
 
 .launcher-all-apps-page {
@@ -343,7 +343,7 @@
 }
 
 .launcher-apps-scroller {
-  padding: 6px 2px 6px 0;
+  padding: 6px 0 6px 0;
   border-radius: 0;
   background: rgba(250, 242, 229, 0.82);
   border: 1px solid rgba(157, 124, 92, 0.1);

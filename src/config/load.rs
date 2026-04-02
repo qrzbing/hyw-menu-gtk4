@@ -84,6 +84,11 @@ impl LauncherConfig {
             self.top_panels_mut().set_spacing(spacing.clamp(0, 32));
         }
 
+        if let Some(top_margin) = file_config.top_panels.top_margin {
+            self.top_panels_mut()
+                .set_top_margin(top_margin.clamp(0, 96));
+        }
+
         if let Some(outer_margin) = file_config.top_panels.outer_margin {
             self.top_panels_mut()
                 .set_outer_margin(outer_margin.clamp(0, 48));
@@ -209,7 +214,7 @@ impl Default for LauncherConfig {
                     MenuAction::None,
                 ),
             ),
-            TopPanelsConfig::new(212, 14, 24, Vec::new(), Vec::new()),
+            TopPanelsConfig::new(212, 14, 24, 24, Vec::new(), Vec::new()),
             GridSectionConfig::new(
                 12,
                 4,

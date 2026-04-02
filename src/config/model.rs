@@ -65,6 +65,7 @@ pub(crate) struct SidebarSpacing {
 pub struct TopPanelsConfig {
     height: i32,
     spacing: i32,
+    top_margin: i32,
     outer_margin: i32,
     left_panels: Vec<TopPanelConfig>,
     right_panels: Vec<TopPanelConfig>,
@@ -433,6 +434,7 @@ impl TopPanelsConfig {
     pub(crate) fn new(
         height: i32,
         spacing: i32,
+        top_margin: i32,
         outer_margin: i32,
         left_panels: Vec<TopPanelConfig>,
         right_panels: Vec<TopPanelConfig>,
@@ -440,6 +442,7 @@ impl TopPanelsConfig {
         Self {
             height,
             spacing,
+            top_margin,
             outer_margin,
             left_panels,
             right_panels,
@@ -452,6 +455,10 @@ impl TopPanelsConfig {
 
     pub fn spacing(&self) -> i32 {
         self.spacing
+    }
+
+    pub fn top_margin(&self) -> i32 {
+        self.top_margin
     }
 
     pub fn outer_margin(&self) -> i32 {
@@ -472,6 +479,10 @@ impl TopPanelsConfig {
 
     pub fn set_spacing(&mut self, spacing: i32) {
         self.spacing = spacing;
+    }
+
+    pub fn set_top_margin(&mut self, top_margin: i32) {
+        self.top_margin = top_margin;
     }
 
     pub fn set_outer_margin(&mut self, outer_margin: i32) {

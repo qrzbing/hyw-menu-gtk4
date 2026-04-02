@@ -59,6 +59,7 @@ pub(super) struct GridFileConfig {
 pub(super) struct TopPanelsFileConfig {
     pub(super) height: Option<i32>,
     pub(super) spacing: Option<i32>,
+    pub(super) top_margin: Option<i32>,
     pub(super) outer_margin: Option<i32>,
     #[serde(default)]
     pub(super) left: Vec<TopPanelFileConfig>,

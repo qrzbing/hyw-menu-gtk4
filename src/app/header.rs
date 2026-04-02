@@ -27,10 +27,10 @@ impl LauncherWindow {
         panel.add_css_class("launcher-right-panel");
         panel.set_hexpand(true);
         panel.set_vexpand(true);
-        panel.set_margin_top(self.config().top_panels().outer_margin());
+        panel.set_margin_top(self.config().top_panels().top_margin());
         panel.set_margin_bottom(self.config().top_panels().outer_margin());
         panel.set_margin_start(0);
-        panel.set_margin_end(self.config().top_panels().outer_margin());
+        panel.set_margin_end(0);
 
         if let Some(top_panels) = self.build_top_panels(navigator, all_apps) {
             panel.append(&top_panels);
