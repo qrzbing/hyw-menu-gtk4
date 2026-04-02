@@ -4,8 +4,8 @@ use gtk4::gdk::{self, Display};
 use gtk4::glib::Propagation;
 use gtk4::prelude::*;
 use gtk4::{
-    Align, Application, ApplicationWindow, Box as GtkBox, Button, EventControllerKey, Grid, Label,
-    Orientation, ScrolledWindow,
+    Align, Application, ApplicationWindow, Box as GtkBox, Button, ContentFit, EventControllerKey,
+    Grid, Image, Label, Orientation, Picture, ScrolledWindow, Widget,
 };
 use gtk4_layer_shell::{Edge, KeyboardMode, Layer, LayerShell};
 
@@ -108,7 +108,7 @@ impl LauncherWindow {
         top_section.append(&self.build_sidebar_button(
             &self.config.sidebar.top_button,
             "launcher-sidebar-fixed-button",
-            Self::sidebar_fixed_button_height(),
+            self.sidebar_button_size(),
         ));
 
         let middle_section = GtkBox::new(Orientation::Vertical, self.config.sidebar.spacing);
@@ -117,7 +117,7 @@ impl LauncherWindow {
             middle_section.append(&self.build_sidebar_button(
                 button,
                 "launcher-sidebar-menu-button",
-                Self::sidebar_menu_button_height(),
+                self.sidebar_button_size(),
             ));
         }
 
@@ -132,7 +132,7 @@ impl LauncherWindow {
         bottom_section.append(&self.build_sidebar_button(
             &self.config.sidebar.bottom_button,
             "launcher-sidebar-fixed-button",
-            Self::sidebar_fixed_button_height(),
+            self.sidebar_button_size(),
         ));
 
         sidebar.append(&top_section);
@@ -147,14 +147,35 @@ impl LauncherWindow {
         &self,
         button: &ButtonConfig,
         variant_class: &str,
-        height: i32,
+        button_size: i32,
     ) -> Button {
-        let widget = Button::with_label(&button.label);
+        let widget = Button::new();
+        let icon_slot = GtkBox::new(Orientation::Vertical, 0);
+        let icon_size = self.sidebar_icon_size(button_size);
+        let icon_padding = self.sidebar_icon_padding(button_size, icon_size);
         widget.add_css_class("launcher-sidebar-button");
         widget.add_css_class(variant_class);
-        widget.set_hexpand(true);
-        widget.set_height_request(height);
+        icon_slot.add_css_class("launcher-sidebar-icon-slot");
+        icon_slot.set_halign(Align::Center);
+        icon_slot.set_valign(Align::Center);
+        icon_slot.set_hexpand(false);
+        icon_slot.set_vexpand(false);
+        icon_slot.set_width_request(icon_size);
+        icon_slot.set_height_request(icon_size);
+        icon_slot.set_margin_top(icon_padding);
+        icon_slot.set_margin_bottom(icon_padding);
+        icon_slot.set_margin_start(icon_padding);
+        icon_slot.set_margin_end(icon_padding);
+
+        icon_slot.append(&self.build_sidebar_icon(button, icon_size));
+
+        widget.set_halign(Align::Center);
+        widget.set_valign(Align::Start);
+        widget.set_hexpand(false);
+        widget.set_width_request(button_size);
+        widget.set_height_request(button_size);
         widget.set_tooltip_text(Some(&Self::button_tooltip(button)));
+        widget.set_child(Some(&icon_slot));
         self.bind_button_action(&widget, button);
         widget
     }
@@ -326,6 +347,38 @@ impl LauncherWindow {
         widget
     }
 
+    fn build_sidebar_icon(&self, button: &ButtonConfig, icon_size: i32) -> Widget {
+        if let Some(icon_path) = &button.icon_path {
+            let picture = Picture::for_filename(icon_path);
+            picture.add_css_class("launcher-sidebar-icon");
+            picture.set_can_shrink(true);
+            picture.set_content_fit(ContentFit::Contain);
+            picture.set_halign(Align::Center);
+            picture.set_valign(Align::Center);
+            picture.set_width_request(icon_size);
+            picture.set_height_request(icon_size);
+            return picture.upcast();
+        }
+
+        if let Some(icon_name) = &button.icon_name {
+            let image = Image::from_icon_name(icon_name);
+            image.add_css_class("launcher-sidebar-icon");
+            image.set_halign(Align::Center);
+            image.set_valign(Align::Center);
+            image.set_width_request(icon_size);
+            image.set_height_request(icon_size);
+            image.set_pixel_size(icon_size);
+            return image.upcast();
+        }
+
+        let fallback = Label::new(Some(&Self::sidebar_icon_fallback_text(button)));
+        fallback.add_css_class("launcher-sidebar-icon");
+        fallback.add_css_class("launcher-sidebar-icon-fallback");
+        fallback.set_halign(Align::Center);
+        fallback.set_valign(Align::Center);
+        fallback.upcast()
+    }
+
     fn bind_button_action(&self, widget: &Button, button: &ButtonConfig) {
         let action = button.action.clone();
         let window = self.window.clone();
@@ -336,16 +389,35 @@ impl LauncherWindow {
         });
     }
 
-    fn sidebar_fixed_button_height() -> i32 {
-        62
+    fn sidebar_button_size(&self) -> i32 {
+        (self.config.window.sidebar_width - Self::sidebar_horizontal_padding() * 2).max(56)
     }
 
-    fn sidebar_menu_button_height() -> i32 {
-        52
+    fn sidebar_icon_size(&self, button_size: i32) -> i32 {
+        ((button_size as f32) * self.config.sidebar.icon_scale)
+            .round()
+            .clamp(16.0, button_size as f32) as i32
+    }
+
+    fn sidebar_icon_padding(&self, button_size: i32, icon_size: i32) -> i32 {
+        ((button_size - icon_size) / 2).max(0)
+    }
+
+    fn sidebar_horizontal_padding() -> i32 {
+        10
+    }
+
+    fn sidebar_icon_fallback_text(button: &ButtonConfig) -> String {
+        button
+            .label
+            .chars()
+            .next()
+            .map(|ch| ch.to_uppercase().to_string())
+            .unwrap_or_else(|| "?".to_string())
     }
 
     fn sidebar_middle_spacer_height(&self) -> i32 {
-        (self.config.header.height + self.config.grid.spacing - Self::sidebar_fixed_button_height()
+        (self.config.header.height + self.config.grid.spacing - self.sidebar_button_size()
             + self.config.sidebar.middle_offset)
             .max(0)
     }

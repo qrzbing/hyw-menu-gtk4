@@ -25,6 +25,7 @@ pub struct SidebarConfig {
     pub spacing: i32,
     pub outer_margin: i32,
     pub inner_margin: i32,
+    pub icon_scale: f32,
     pub middle_offset: i32,
     pub top_button: ButtonConfig,
     pub buttons: Vec<ButtonConfig>,
@@ -62,6 +63,7 @@ pub struct ButtonConfig {
     pub id: String,
     pub label: String,
     pub icon_name: Option<String>,
+    pub icon_path: Option<PathBuf>,
     pub action: MenuAction,
 }
 
@@ -111,14 +113,34 @@ struct LauncherFileConfig {
 
 #[derive(Debug, Deserialize, Default)]
 struct SidebarFileConfig {
+    icon_scale: Option<f32>,
     #[serde(default)]
-    buttons: Vec<String>,
+    top_button: Option<ButtonFileConfig>,
+    #[serde(default)]
+    buttons: Vec<SidebarButtonFileEntry>,
+    #[serde(default)]
+    bottom_button: Option<ButtonFileConfig>,
 }
 
 #[derive(Debug, Deserialize, Default)]
 struct GridFileConfig {
     #[serde(default)]
     cards: Vec<String>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(untagged)]
+enum SidebarButtonFileEntry {
+    Label(String),
+    Config(ButtonFileConfig),
+}
+
+#[derive(Debug, Deserialize, Default, Clone)]
+struct ButtonFileConfig {
+    id: Option<String>,
+    label: Option<String>,
+    icon_name: Option<String>,
+    icon_path: Option<PathBuf>,
 }
 
 impl LauncherConfig {
@@ -135,18 +157,30 @@ impl LauncherConfig {
         };
 
         let file_config = LauncherFileConfig::from_path(&path)?;
-        config.apply_file_config(file_config);
+        config.apply_file_config(file_config, path.parent());
         Ok(config)
     }
 
-    fn apply_file_config(&mut self, file_config: LauncherFileConfig) {
+    fn apply_file_config(&mut self, file_config: LauncherFileConfig, config_dir: Option<&Path>) {
+        if let Some(icon_scale) = file_config.sidebar.icon_scale {
+            self.sidebar.icon_scale = icon_scale.clamp(0.2, 1.0);
+        }
+
+        if let Some(top_button) = file_config.sidebar.top_button {
+            apply_button_file_config(&mut self.sidebar.top_button, top_button, config_dir);
+        }
+
         if !file_config.sidebar.buttons.is_empty() {
             self.sidebar.buttons = file_config
                 .sidebar
                 .buttons
                 .into_iter()
-                .map(|label| sidebar_button_config(&label))
+                .map(|button| sidebar_button_config_from_file(button, config_dir))
                 .collect();
+        }
+
+        if let Some(bottom_button) = file_config.sidebar.bottom_button {
+            apply_button_file_config(&mut self.sidebar.bottom_button, bottom_button, config_dir);
         }
 
         if !file_config.grid.cards.is_empty() {
@@ -189,6 +223,7 @@ fn sidebar_button_config(label: &str) -> ButtonConfig {
         id: id.clone(),
         label: label.to_string(),
         icon_name: None,
+        icon_path: None,
         action: MenuAction::OpenSection(id),
     }
 }
@@ -200,8 +235,66 @@ fn grid_button_config(label: &str) -> ButtonConfig {
         id: id.clone(),
         label: label.to_string(),
         icon_name: None,
+        icon_path: None,
         action: MenuAction::OpenSection(id),
     }
+}
+
+fn sidebar_button_config_from_file(
+    entry: SidebarButtonFileEntry,
+    config_dir: Option<&Path>,
+) -> ButtonConfig {
+    match entry {
+        SidebarButtonFileEntry::Label(label) => sidebar_button_config(&label),
+        SidebarButtonFileEntry::Config(button) => {
+            let label = button
+                .label
+                .clone()
+                .or_else(|| button.id.clone())
+                .unwrap_or_else(|| "Button".to_string());
+            let id = button.id.unwrap_or_else(|| slugify(&label));
+
+            ButtonConfig {
+                id: id.clone(),
+                label,
+                icon_name: button.icon_name,
+                icon_path: resolve_config_path(config_dir, button.icon_path),
+                action: MenuAction::OpenSection(id),
+            }
+        }
+    }
+}
+
+fn apply_button_file_config(
+    target: &mut ButtonConfig,
+    source: ButtonFileConfig,
+    config_dir: Option<&Path>,
+) {
+    if let Some(id) = source.id {
+        target.id = id;
+    }
+
+    if let Some(label) = source.label {
+        target.label = label;
+    }
+
+    if let Some(icon_name) = source.icon_name {
+        target.icon_name = Some(icon_name);
+    }
+
+    if let Some(icon_path) = resolve_config_path(config_dir, source.icon_path) {
+        target.icon_path = Some(icon_path);
+    }
+}
+
+fn resolve_config_path(config_dir: Option<&Path>, path: Option<PathBuf>) -> Option<PathBuf> {
+    path.map(|path| {
+        if path.is_absolute() {
+            path
+        } else {
+            config_dir.unwrap_or_else(|| Path::new(".")).join(path)
+        }
+    })
 }
 
 fn slugify(input: &str) -> String {
@@ -229,17 +322,19 @@ impl Default for LauncherConfig {
                 title: "hyw-menu".to_string(),
                 namespace: "hyw-menu".to_string(),
                 min_width: 320,
-                sidebar_width: 88,
+                sidebar_width: 96,
             },
             sidebar: SidebarConfig {
                 spacing: 12,
                 outer_margin: 24,
                 inner_margin: 16,
+                icon_scale: 0.46,
                 middle_offset: 40,
                 top_button: ButtonConfig {
                     id: "close-menu".to_string(),
                     label: "Close".to_string(),
                     icon_name: Some("window-close-symbolic".to_string()),
+                    icon_path: None,
                     action: MenuAction::CloseMenu,
                 },
                 buttons: vec![
@@ -247,24 +342,28 @@ impl Default for LauncherConfig {
                         id: "all".to_string(),
                         label: "All".to_string(),
                         icon_name: Some("view-grid-symbolic".to_string()),
+                        icon_path: None,
                         action: MenuAction::OpenSection("all".to_string()),
                     },
                     ButtonConfig {
                         id: "favorites".to_string(),
                         label: "Favorites".to_string(),
                         icon_name: Some("starred-symbolic".to_string()),
+                        icon_path: None,
                         action: MenuAction::OpenSection("favorites".to_string()),
                     },
                     ButtonConfig {
                         id: "recent".to_string(),
                         label: "Recent".to_string(),
                         icon_name: Some("document-open-recent-symbolic".to_string()),
+                        icon_path: None,
                         action: MenuAction::OpenSection("recent".to_string()),
                     },
                     ButtonConfig {
                         id: "system".to_string(),
                         label: "System".to_string(),
                         icon_name: Some("applications-system-symbolic".to_string()),
+                        icon_path: None,
                         action: MenuAction::OpenSection("system".to_string()),
                     },
                 ],
@@ -272,6 +371,7 @@ impl Default for LauncherConfig {
                     id: "power".to_string(),
                     label: "Power".to_string(),
                     icon_name: Some("system-shutdown-symbolic".to_string()),
+                    icon_path: None,
                     action: MenuAction::None,
                 },
             },
@@ -302,6 +402,7 @@ impl Default for LauncherConfig {
                         id: "edit".to_string(),
                         label: "Edit".to_string(),
                         icon_name: Some("document-edit-symbolic".to_string()),
+                        icon_path: None,
                         action: MenuAction::None,
                     },
                     ButtonConfig {
@@ -310,6 +411,7 @@ impl Default for LauncherConfig {
                         icon_name: Some(
                             "preferences-system-notifications-symbolic".to_string(),
                         ),
+                        icon_path: None,
                         action: MenuAction::None,
                     },
                 ],
@@ -323,6 +425,7 @@ impl Default for LauncherConfig {
                     id: "applications".to_string(),
                     label: "Applications".to_string(),
                     icon_name: Some("view-app-grid-symbolic".to_string()),
+                    icon_path: None,
                     action: MenuAction::OpenSection("applications".to_string()),
                 }],
             },
