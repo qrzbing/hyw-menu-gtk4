@@ -1,11 +1,14 @@
+use std::cell::RefCell;
+use std::rc::Rc;
 use std::sync::Arc;
 
 use gtk4::gdk::{self, Display};
 use gtk4::glib::Propagation;
 use gtk4::prelude::*;
 use gtk4::{
-    Align, Application, ApplicationWindow, Box as GtkBox, Button, ContentFit, EventControllerKey,
-    Grid, Image, Label, Orientation, Picture, ScrolledWindow, Widget,
+    Align, Application, ApplicationWindow, Box as GtkBox, Button, ContentFit, Entry,
+    EventControllerKey, FlowBox, Grid, Image, Label, Orientation, Picture, ScrolledWindow, Stack,
+    StackTransitionType, Widget,
 };
 use gtk4_layer_shell::{Edge, KeyboardMode, Layer, LayerShell};
 
@@ -14,6 +17,106 @@ use crate::config::{
 };
 use crate::hyprland::{HyprlandContext, preferred_monitor};
 use crate::style::install_global_css;
+
+const ALL_APPS_PLACEHOLDERS: &[(&str, &str, &str)] = &[
+    (
+        "Terminal",
+        "utilities-terminal-symbolic",
+        "Command line and terminal tools",
+    ),
+    (
+        "Browser",
+        "web-browser-symbolic",
+        "Web browsing and web apps",
+    ),
+    (
+        "Files",
+        "system-file-manager-symbolic",
+        "File management and directory browsing",
+    ),
+    (
+        "Settings",
+        "preferences-system-symbolic",
+        "System settings and device options",
+    ),
+    (
+        "Editor",
+        "accessories-text-editor-symbolic",
+        "Code and text editing",
+    ),
+    (
+        "Music",
+        "multimedia-player-symbolic",
+        "Music and audio playback",
+    ),
+    ("Video", "video-display-symbolic", "Video and display tools"),
+    (
+        "Archive",
+        "package-x-generic-symbolic",
+        "Archive and compression tools",
+    ),
+    (
+        "Monitor",
+        "utilities-system-monitor-symbolic",
+        "System monitoring and resource usage",
+    ),
+    (
+        "Network",
+        "network-workgroup-symbolic",
+        "Network and connectivity",
+    ),
+    (
+        "Calendar",
+        "x-office-calendar-symbolic",
+        "Schedule and reminders",
+    ),
+    (
+        "Image",
+        "image-x-generic-symbolic",
+        "Image viewing and organization",
+    ),
+];
+
+#[derive(Clone)]
+struct LauncherNavigator {
+    stack: Stack,
+    section_buttons: Rc<RefCell<Vec<(String, Button)>>>,
+}
+
+impl LauncherNavigator {
+    fn new(stack: &Stack) -> Self {
+        Self {
+            stack: stack.clone(),
+            section_buttons: Rc::new(RefCell::new(Vec::new())),
+        }
+    }
+
+    fn register_sidebar_button(&self, section_id: &str, button: &Button) {
+        self.section_buttons
+            .borrow_mut()
+            .push((section_id.to_string(), button.clone()));
+    }
+
+    fn activate_section(&self, section_id: &str) {
+        self.stack
+            .set_visible_child_name(Self::page_name_for_section(section_id));
+
+        for (candidate_id, button) in self.section_buttons.borrow().iter() {
+            if candidate_id == section_id {
+                button.add_css_class("is-active");
+            } else {
+                button.remove_css_class("is-active");
+            }
+        }
+    }
+
+    fn page_name_for_section(section_id: &str) -> &'static str {
+        match section_id {
+            "home" | "dashboard" | "start" => "dashboard",
+            _ => "all-apps",
+        }
+    }
+}
 
 pub struct LauncherApp {
     config: Arc<LauncherConfig>,
@@ -85,14 +188,19 @@ impl LauncherWindow {
     }
 
     fn build_root_container(&self) -> GtkBox {
+        let content_stack = Stack::new();
+        let navigator = LauncherNavigator::new(&content_stack);
+        self.populate_content_stack(&content_stack, &navigator);
+
         let root = GtkBox::new(Orientation::Horizontal, 0);
         root.add_css_class("launcher-root");
-        root.append(&self.build_sidebar_nav());
-        root.append(&self.build_right_panel());
+        root.append(&self.build_sidebar_nav(&navigator));
+        root.append(&self.build_right_panel(&content_stack));
+        navigator.activate_section(&self.initial_section_id());
         root
     }
 
-    fn build_sidebar_nav(&self) -> GtkBox {
+    fn build_sidebar_nav(&self, navigator: &LauncherNavigator) -> GtkBox {
         let sidebar = GtkBox::new(Orientation::Vertical, 0);
         sidebar.add_css_class("launcher-sidebar");
         sidebar.set_width_request(self.sidebar_width());
@@ -109,6 +217,7 @@ impl LauncherWindow {
             &self.config.sidebar.top_button,
             "launcher-sidebar-fixed-button",
             self.sidebar_button_size(),
+            None,
         ));
 
         let middle_section = GtkBox::new(Orientation::Vertical, self.config.sidebar.spacing);
@@ -118,6 +227,7 @@ impl LauncherWindow {
                 button,
                 "launcher-sidebar-menu-button",
                 self.sidebar_button_size(),
+                Some(navigator),
             ));
         }
 
@@ -133,6 +243,7 @@ impl LauncherWindow {
             &self.config.sidebar.bottom_button,
             "launcher-sidebar-fixed-button",
             self.sidebar_button_size(),
+            None,
         ));
 
         sidebar.append(&top_section);
@@ -148,6 +259,7 @@ impl LauncherWindow {
         button: &ButtonConfig,
         variant_class: &str,
         button_size: i32,
+        navigator: Option<&LauncherNavigator>,
     ) -> Button {
         let widget = Button::new();
         let icon_slot = GtkBox::new(Orientation::Vertical, 0);
@@ -170,11 +282,16 @@ impl LauncherWindow {
         widget.set_height_request(button_size);
         widget.set_tooltip_text(Some(&Self::button_tooltip(button)));
         widget.set_child(Some(&icon_slot));
-        self.bind_button_action(&widget, button);
+
+        if let (Some(navigator), MenuAction::OpenSection(section)) = (navigator, &button.action) {
+            navigator.register_sidebar_button(section, &widget);
+        }
+
+        self.bind_button_action(&widget, button, navigator.cloned());
         widget
     }
 
-    fn build_right_panel(&self) -> GtkBox {
+    fn build_right_panel(&self, content_stack: &Stack) -> GtkBox {
         let panel = GtkBox::new(Orientation::Vertical, self.config.grid.spacing);
         panel.add_css_class("launcher-right-panel");
         panel.set_hexpand(true);
@@ -185,7 +302,7 @@ impl LauncherWindow {
         panel.set_margin_end(self.config.header.outer_margin);
 
         panel.append(&self.build_header_banner());
-        panel.append(&self.build_grid_section());
+        panel.append(content_stack);
         panel
     }
 
@@ -246,7 +363,7 @@ impl LauncherWindow {
         let widget = Button::with_label(&button.label);
         widget.add_css_class("launcher-header-action-button");
         widget.set_tooltip_text(Some(&Self::button_tooltip(button)));
-        self.bind_button_action(&widget, button);
+        self.bind_button_action(&widget, button, None);
         widget
     }
 
@@ -270,7 +387,168 @@ impl LauncherWindow {
         container
     }
 
-    fn build_grid_section(&self) -> ScrolledWindow {
+    fn populate_content_stack(&self, content_stack: &Stack, navigator: &LauncherNavigator) {
+        content_stack.add_css_class("launcher-content-stack");
+        content_stack.set_hexpand(true);
+        content_stack.set_vexpand(true);
+        content_stack.set_transition_type(StackTransitionType::Crossfade);
+        content_stack.add_named(&self.build_dashboard_page(navigator), Some("dashboard"));
+        content_stack.add_named(&self.build_all_apps_page(), Some("all-apps"));
+    }
+
+    fn build_dashboard_page(&self, navigator: &LauncherNavigator) -> GtkBox {
+        let page = GtkBox::new(Orientation::Vertical, 12);
+        page.add_css_class("launcher-page");
+        page.add_css_class("launcher-dashboard-page");
+        page.set_hexpand(true);
+        page.set_vexpand(true);
+        page.append(&self.build_page_intro(
+            "Quick Access",
+            "Keep the current game-style home page as the entry view. Later it can host pinned apps, recent items, and system shortcuts.",
+            "Home",
+        ));
+        page.append(&self.build_grid_section(navigator));
+        page
+    }
+
+    fn build_all_apps_page(&self) -> GtkBox {
+        let page = GtkBox::new(Orientation::Vertical, 12);
+        page.add_css_class("launcher-page");
+        page.add_css_class("launcher-all-apps-page");
+        page.set_hexpand(true);
+        page.set_vexpand(true);
+        page.append(&self.build_page_intro(
+            "All Apps",
+            "This page follows the launcher structure of nwg-menu / nwg-drawer for now, using placeholder apps until desktop data is wired in.",
+            "Menu",
+        ));
+        page.append(&self.build_all_apps_toolbar());
+        page.append(&self.build_all_apps_scroller());
+        page
+    }
+
+    fn build_page_intro(&self, title_text: &str, subtitle_text: &str, badge_text: &str) -> GtkBox {
+        let container = GtkBox::new(Orientation::Vertical, 8);
+        let top_row = GtkBox::new(Orientation::Horizontal, 10);
+        let text_column = GtkBox::new(Orientation::Vertical, 4);
+
+        let title = Label::new(Some(title_text));
+        title.add_css_class("launcher-page-title");
+        title.set_halign(Align::Start);
+        title.set_xalign(0.0);
+
+        let subtitle = Label::new(Some(subtitle_text));
+        subtitle.add_css_class("launcher-page-subtitle");
+        subtitle.set_wrap(true);
+        subtitle.set_halign(Align::Start);
+        subtitle.set_xalign(0.0);
+
+        let badge = Label::new(Some(badge_text));
+        badge.add_css_class("launcher-page-badge");
+        badge.set_halign(Align::End);
+
+        text_column.set_hexpand(true);
+        text_column.append(&title);
+        text_column.append(&subtitle);
+
+        top_row.append(&text_column);
+        top_row.append(&badge);
+
+        container.add_css_class("launcher-page-intro");
+        container.append(&top_row);
+        container
+    }
+
+    fn build_all_apps_toolbar(&self) -> GtkBox {
+        let container = GtkBox::new(Orientation::Vertical, 10);
+        let search = Entry::new();
+        let filters = GtkBox::new(Orientation::Horizontal, 8);
+
+        search.add_css_class("launcher-search-entry");
+        search.set_placeholder_text(Some(
+            "Search apps (placeholder UI, desktop data will be added later)",
+        ));
+
+        for filter in ["All", "Pinned", "System", "Development"] {
+            let chip = Button::with_label(filter);
+            chip.add_css_class("launcher-filter-chip");
+            filters.append(&chip);
+        }
+
+        container.add_css_class("launcher-all-apps-toolbar");
+        container.append(&search);
+        container.append(&filters);
+        container
+    }
+
+    fn build_all_apps_scroller(&self) -> ScrolledWindow {
+        let scroller = ScrolledWindow::builder()
+            .hexpand(true)
+            .vexpand(true)
+            .hscrollbar_policy(gtk4::PolicyType::Never)
+            .build();
+        scroller.add_css_class("launcher-apps-scroller");
+
+        let flow = FlowBox::new();
+        let spacing = self.config.grid.spacing.max(0) as u32;
+        flow.set_min_children_per_line(self.config.grid.columns.max(1) as u32);
+        flow.set_max_children_per_line(self.config.grid.columns.max(1) as u32);
+        flow.set_column_spacing(spacing);
+        flow.set_row_spacing(spacing);
+        flow.set_selection_mode(gtk4::SelectionMode::None);
+        flow.set_homogeneous(true);
+        flow.add_css_class("launcher-apps-grid");
+
+        for (title, icon_name, subtitle) in ALL_APPS_PLACEHOLDERS {
+            flow.insert(&self.build_all_apps_tile(title, icon_name, subtitle), -1);
+        }
+
+        scroller.set_child(Some(&flow));
+        scroller
+    }
+
+    fn build_all_apps_tile(
+        &self,
+        title_text: &str,
+        icon_name: &str,
+        subtitle_text: &str,
+    ) -> Button {
+        let widget = Button::new();
+        let content = GtkBox::new(Orientation::Vertical, 10);
+        let icon = Image::from_icon_name(icon_name);
+        let title = Label::new(Some(title_text));
+        let subtitle = Label::new(Some(subtitle_text));
+
+        widget.add_css_class("launcher-app-tile");
+        widget.set_width_request(self.config.grid.tile_width + 18);
+        widget.set_height_request(self.config.grid.tile_height + 26);
+        widget.set_halign(Align::Fill);
+        widget.set_valign(Align::Start);
+        widget.set_tooltip_text(Some(title_text));
+
+        icon.add_css_class("launcher-app-tile-icon");
+        icon.set_pixel_size(28);
+        icon.set_halign(Align::Start);
+
+        title.add_css_class("launcher-app-tile-title");
+        title.set_halign(Align::Start);
+        title.set_xalign(0.0);
+
+        subtitle.add_css_class("launcher-app-tile-subtitle");
+        subtitle.set_wrap(true);
+        subtitle.set_halign(Align::Start);
+        subtitle.set_xalign(0.0);
+
+        content.set_halign(Align::Fill);
+        content.set_valign(Align::Center);
+        content.append(&icon);
+        content.append(&title);
+        content.append(&subtitle);
+        widget.set_child(Some(&content));
+        widget
+    }
+
+    fn build_grid_section(&self, navigator: &LauncherNavigator) -> ScrolledWindow {
         let scroller = ScrolledWindow::builder()
             .hexpand(true)
             .vexpand(true)
@@ -292,7 +570,7 @@ impl LauncherWindow {
             let column = (index as i32) % self.config.grid.columns;
             let row = (index as i32) / self.config.grid.columns;
             grid.attach(
-                &self.build_menu_tile_button(button, &self.config.grid),
+                &self.build_menu_tile_button(button, &self.config.grid, Some(navigator)),
                 column,
                 row,
                 1,
@@ -304,7 +582,12 @@ impl LauncherWindow {
         scroller
     }
 
-    fn build_menu_tile_button(&self, button: &ButtonConfig, grid: &GridSectionConfig) -> Button {
+    fn build_menu_tile_button(
+        &self,
+        button: &ButtonConfig,
+        grid: &GridSectionConfig,
+        navigator: Option<&LauncherNavigator>,
+    ) -> Button {
         let widget = Button::new();
         let content = GtkBox::new(Orientation::Vertical, 8);
         let icon = Label::new(Some(button.icon_name.as_deref().unwrap_or("icon")));
@@ -318,7 +601,7 @@ impl LauncherWindow {
         widget.set_vexpand(false);
         widget.set_tooltip_text(Some(&Self::button_tooltip(button)));
         widget.add_css_class("menu-tile-button");
-        self.bind_button_action(&widget, button);
+        self.bind_button_action(&widget, button, navigator.cloned());
 
         content.set_valign(Align::Center);
         content.set_halign(Align::Center);
@@ -373,13 +656,23 @@ impl LauncherWindow {
         fallback.upcast()
     }
 
-    fn bind_button_action(&self, widget: &Button, button: &ButtonConfig) {
+    fn bind_button_action(
+        &self,
+        widget: &Button,
+        button: &ButtonConfig,
+        navigator: Option<LauncherNavigator>,
+    ) {
         let action = button.action.clone();
         let window = self.window.clone();
 
         widget.connect_clicked(move |_| match &action {
             MenuAction::CloseMenu => window.close(),
-            MenuAction::None | MenuAction::OpenSection(_) | MenuAction::LaunchCommand(_) => {}
+            MenuAction::OpenSection(section) => {
+                if let Some(navigator) = &navigator {
+                    navigator.activate_section(section);
+                }
+            }
+            MenuAction::None | MenuAction::LaunchCommand(_) => {}
         });
     }
 
@@ -408,6 +701,18 @@ impl LauncherWindow {
         (self.config.header.height + self.config.grid.spacing - self.sidebar_button_size()
             + self.config.sidebar.middle_offset)
             .max(0)
+    }
+
+    fn initial_section_id(&self) -> String {
+        self.config
+            .sidebar
+            .buttons
+            .iter()
+            .find_map(|button| match &button.action {
+                MenuAction::OpenSection(section) => Some(section.clone()),
+                _ => None,
+            })
+            .unwrap_or_else(|| "dashboard".to_string())
     }
 
     fn configure_layer_shell(&self, monitor: &gdk::Monitor) {

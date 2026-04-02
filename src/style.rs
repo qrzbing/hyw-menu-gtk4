@@ -38,6 +38,7 @@ fn sidebar_runtime_css(config: &LauncherConfig) -> String {
 
 .launcher-sidebar-button:checked,
 .launcher-sidebar-button:active,
+.launcher-sidebar-button.is-active,
 .launcher-sidebar-button:focus-visible {{
   background: rgba(245, 214, 148, {active_bg});
   border-color: rgba(245, 214, 148, {active_border});
