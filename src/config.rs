@@ -339,7 +339,7 @@ fn sidebar_button_config_from_file(
             let default_text = button_display_text(
                 button.label.as_ref(),
                 button.id.as_ref(),
-                button.icon_path.as_ref(),
+                button.icon_path.as_deref(),
             );
             let label = default_text.clone().unwrap_or_else(|| "Button".to_string());
             let (icon_name, icon_path) = resolve_button_icon_fields(&button, config_dir);
@@ -364,7 +364,7 @@ fn apply_button_file_config(
     let resolved_label = button_display_text(
         source.label.as_ref(),
         source.id.as_ref(),
-        source.icon_path.as_ref(),
+        source.icon_path.as_deref(),
     );
     let (icon_name, icon_path) = resolve_button_icon_fields(&source, config_dir);
 
@@ -388,7 +388,7 @@ fn apply_button_file_config(
 fn button_display_text(
     label: Option<&String>,
     id: Option<&String>,
-    icon_path: Option<&PathBuf>,
+    icon_path: Option<&Path>,
 ) -> Option<String> {
     label
         .cloned()
@@ -396,7 +396,7 @@ fn button_display_text(
         .or_else(|| icon_path.and_then(path_file_stem))
 }
 
-fn path_file_stem(path: &PathBuf) -> Option<String> {
+fn path_file_stem(path: &Path) -> Option<String> {
     path.file_stem()
         .and_then(|stem| stem.to_str())
         .map(|stem| stem.to_string())
