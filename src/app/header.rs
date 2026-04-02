@@ -146,6 +146,7 @@ impl LauncherWindow {
 
     fn build_profile_panel(&self, config: &ProfilePanelConfig) -> Overlay {
         let panel = Overlay::new();
+        let base = GtkBox::new(Orientation::Vertical, 0);
         let content = GtkBox::new(Orientation::Horizontal, 18);
         let sidebar = GtkBox::new(Orientation::Vertical, 10);
         let body = GtkBox::new(Orientation::Vertical, 10);
@@ -156,9 +157,13 @@ impl LauncherWindow {
         panel.set_vexpand(false);
         panel.set_valign(Align::Start);
         panel.set_overflow(Overflow::Hidden);
+        base.set_hexpand(true);
+        base.set_vexpand(true);
+        panel.set_child(Some(&base));
         content.add_css_class("launcher-profile-panel-content");
         content.set_hexpand(true);
         content.set_vexpand(false);
+        content.set_valign(Align::Start);
         sidebar.add_css_class("launcher-profile-sidebar");
         sidebar.set_width_request(config.avatar_size() + 12);
         sidebar.set_halign(Align::Start);
@@ -174,7 +179,11 @@ impl LauncherWindow {
             picture.set_content_fit(ContentFit::Cover);
             picture.set_halign(Align::Fill);
             picture.set_valign(Align::Fill);
-            panel.set_child(Some(&picture));
+            picture.set_hexpand(true);
+            picture.set_vexpand(true);
+            panel.add_overlay(&picture);
+            panel.set_measure_overlay(&picture, false);
+            panel.set_clip_overlay(&picture, true);
         }
 
         sidebar.append(&self.build_avatar_frame(
@@ -241,6 +250,8 @@ impl LauncherWindow {
         content.append(&sidebar);
         content.append(&body);
         panel.add_overlay(&content);
+        panel.set_measure_overlay(&content, true);
+        panel.set_clip_overlay(&content, true);
         panel
     }
 
