@@ -144,9 +144,17 @@ impl LauncherConfig {
             self.grid_mut().set_buttons(buttons);
         }
 
+        if let Some(tile_spacing) = file_config.grid.tile_spacing {
+            self.grid_mut().set_tile_spacing(tile_spacing.clamp(0, 64));
+        }
+
         let legacy_tile_size = file_config.grid.tile_width.or(file_config.grid.tile_height);
         if let Some(tile_size) = file_config.grid.tile_size.or(legacy_tile_size) {
             self.grid_mut().set_tile_size(tile_size.clamp(72, 192));
+        }
+
+        if let Some(side_margin) = file_config.grid.side_margin {
+            self.grid_mut().set_side_margin(side_margin.clamp(0, 96));
         }
 
         if let Some(icon_size) = file_config.grid.icon_size {
@@ -236,8 +244,10 @@ impl Default for LauncherConfig {
             TopPanelsConfig::new(212, 14, 24, 24, Vec::new(), Vec::new()),
             GridSectionConfig::new(
                 12,
+                12,
                 4,
                 96,
+                24,
                 30,
                 0.28,
                 13,

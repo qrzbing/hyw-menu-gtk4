@@ -161,7 +161,7 @@ impl LauncherWindow {
         let panel_margins = 8;
         let columns = config.grid().columns().max(1);
         let grid_width =
-            (config.grid().tile_size() * columns) + (config.grid().spacing() * (columns - 1));
+            (config.grid().tile_size() * columns) + (config.grid().tile_spacing() * (columns - 1));
 
         sidebar_width + panel_margins + grid_width + 24
     }

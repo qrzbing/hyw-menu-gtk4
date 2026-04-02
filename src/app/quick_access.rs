@@ -147,13 +147,15 @@ impl QuickAccessState {
         scroller.add_css_class("launcher-grid-scroller");
 
         let grid = Grid::new();
-        let spacing = self.config.grid().spacing().max(0) as u32;
+        let spacing = self.config.grid().tile_spacing().max(0) as u32;
         grid.set_column_spacing(spacing);
         grid.set_row_spacing(spacing);
         grid.set_halign(Align::Start);
         grid.set_valign(Align::Start);
         grid.set_hexpand(false);
         grid.set_vexpand(false);
+        grid.set_margin_start(self.config.grid().side_margin());
+        grid.set_margin_end(self.config.grid().side_margin());
         grid.add_css_class("launcher-grid-section");
 
         for (index, app_id) in self.app_ids.borrow().iter().enumerate() {

@@ -48,7 +48,9 @@ pub(super) struct SidebarFileConfig {
 
 #[derive(Debug, Deserialize, Default)]
 pub(super) struct GridFileConfig {
+    pub(super) tile_spacing: Option<i32>,
     pub(super) tile_size: Option<i32>,
+    pub(super) side_margin: Option<i32>,
     pub(super) icon_size: Option<i32>,
     pub(super) icon_center_y_ratio: Option<f32>,
     pub(super) title_font_size: Option<i32>,

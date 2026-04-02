@@ -143,8 +143,10 @@ pub struct SearchPanelConfig {
 #[derive(Debug, Clone)]
 pub struct GridSectionConfig {
     spacing: i32,
+    tile_spacing: i32,
     columns: i32,
     tile_size: i32,
+    side_margin: i32,
     icon_size: i32,
     icon_center_y_ratio: f32,
     title_font_size: i32,
@@ -685,8 +687,10 @@ impl SearchPanelConfig {
 impl GridSectionConfig {
     pub(crate) fn new(
         spacing: i32,
+        tile_spacing: i32,
         columns: i32,
         tile_size: i32,
+        side_margin: i32,
         icon_size: i32,
         icon_center_y_ratio: f32,
         title_font_size: i32,
@@ -695,8 +699,10 @@ impl GridSectionConfig {
     ) -> Self {
         Self {
             spacing,
+            tile_spacing,
             columns,
             tile_size,
+            side_margin,
             icon_size,
             icon_center_y_ratio,
             title_font_size,
@@ -713,8 +719,16 @@ impl GridSectionConfig {
         self.columns
     }
 
+    pub fn tile_spacing(&self) -> i32 {
+        self.tile_spacing
+    }
+
     pub fn tile_size(&self) -> i32 {
         self.tile_size
+    }
+
+    pub fn side_margin(&self) -> i32 {
+        self.side_margin
     }
 
     pub fn icon_size(&self) -> i32 {
@@ -735,6 +749,14 @@ impl GridSectionConfig {
 
     pub fn set_tile_size(&mut self, tile_size: i32) {
         self.tile_size = tile_size;
+    }
+
+    pub fn set_tile_spacing(&mut self, tile_spacing: i32) {
+        self.tile_spacing = tile_spacing;
+    }
+
+    pub fn set_side_margin(&mut self, side_margin: i32) {
+        self.side_margin = side_margin;
     }
 
     pub fn set_icon_size(&mut self, icon_size: i32) {
