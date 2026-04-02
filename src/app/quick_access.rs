@@ -147,7 +147,7 @@ impl QuickAccessState {
         scroller.add_css_class("launcher-grid-scroller");
 
         let grid = Grid::new();
-        let spacing = self.config.grid.spacing.max(0) as u32;
+        let spacing = self.config.grid().spacing().max(0) as u32;
         grid.set_column_spacing(spacing);
         grid.set_row_spacing(spacing);
         grid.set_halign(Align::Start);
@@ -158,8 +158,8 @@ impl QuickAccessState {
 
         for (index, app_id) in self.app_ids.borrow().iter().enumerate() {
             if let Some(app) = self.catalog.get(app_id) {
-                let column = (index as i32) % self.config.grid.columns;
-                let row = (index as i32) / self.config.grid.columns;
+                let column = (index as i32) % self.config.grid().columns();
+                let row = (index as i32) / self.config.grid().columns();
                 grid.attach(&self.build_quick_access_tile(app), column, row, 1, 1);
             }
         }
@@ -169,7 +169,7 @@ impl QuickAccessState {
     }
 
     fn build_quick_access_tile(&self, app: &DesktopAppEntry) -> Button {
-        let button = build_app_tile_widget(app, self.config.grid.tile_size, None);
+        let button = build_app_tile_widget(app, self.config.grid().tile_size(), None);
         attach_launch_handler(&button, app, &self.window);
 
         let remove_state = self.clone();

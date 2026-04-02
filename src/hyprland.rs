@@ -15,9 +15,7 @@ pub struct HyprlandContext {
 
 impl HyprlandContext {
     pub fn new() -> Option<Self> {
-        if env::var_os("HYPRLAND_INSTANCE_SIGNATURE").is_none() {
-            return None;
-        }
+        env::var_os("HYPRLAND_INSTANCE_SIGNATURE")?;
 
         let runtime = Builder::new_multi_thread().enable_all().build().ok()?;
         let service = runtime.block_on(HyprlandService::new()).ok()?;
@@ -43,10 +41,10 @@ pub fn preferred_monitor(
     hyprland: Option<&HyprlandContext>,
     min_width: i32,
 ) -> Option<gdk::Monitor> {
-    if let Some(name) = hyprland.and_then(HyprlandContext::focused_monitor_name) {
-        if let Some(monitor) = monitor_by_connector(display, &name) {
-            return Some(monitor);
-        }
+    if let Some(name) = hyprland.and_then(HyprlandContext::focused_monitor_name)
+        && let Some(monitor) = monitor_by_connector(display, &name)
+    {
+        return Some(monitor);
     }
 
     first_suitable_monitor(display, min_width)

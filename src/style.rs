@@ -37,7 +37,7 @@ pub fn install_global_css(display: &Display, config: &LauncherConfig) {
 }
 
 fn sidebar_runtime_css(config: &LauncherConfig) -> String {
-    let opacity = config.sidebar.button_bg_opacity.clamp(0.0, 1.0);
+    let opacity = config.sidebar().button_bg_opacity().clamp(0.0, 1.0);
 
     format!(
         r#"
@@ -79,7 +79,7 @@ fn sidebar_runtime_css(config: &LauncherConfig) -> String {
 }
 
 fn theme_runtime_css(config: &LauncherConfig) -> String {
-    let Some(font_family) = config.theme.font_family.as_deref() else {
+    let Some(font_family) = config.theme().font_family() else {
         return String::new();
     };
 
@@ -92,17 +92,12 @@ fn css_string_literal(input: &str) -> String {
 }
 
 fn register_theme_font(config: &LauncherConfig) {
-    let Some(font_path) = config
-        .theme
-        .font_path
-        .as_deref()
-        .filter(|path| path.exists())
-    else {
+    let Some(font_path) = config.theme().font_path().filter(|path| path.exists()) else {
         return;
     };
 
     if let Err(error) = register_font_file(font_path) {
-        eprintln!("Failed to register font {}: {error}", font_path.display());
+        eprintln!("failed to register font {}: {error}", font_path.display());
     }
 }
 
@@ -112,20 +107,20 @@ fn register_font_file(path: &Path) -> Result<(), String> {
 
     unsafe {
         if FcInit() == 0 {
-            return Err("FcInit failed".to_string());
+            return Err("fcinit failed".to_owned());
         }
 
         let config = FcConfigGetCurrent();
         if config.is_null() {
-            return Err("FcConfigGetCurrent returned null".to_string());
+            return Err("fcconfiggetcurrent returned null".to_owned());
         }
 
         if FcConfigAppFontAddFile(config, c_path.as_ptr() as *const c_uchar) == 0 {
-            return Err("FcConfigAppFontAddFile failed".to_string());
+            return Err("fcconfigappfontaddfile failed".to_owned());
         }
 
         if FcConfigBuildFonts(config) == 0 {
-            return Err("FcConfigBuildFonts failed".to_string());
+            return Err("fcconfigbuildfonts failed".to_owned());
         }
     }
 
