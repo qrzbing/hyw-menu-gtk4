@@ -159,7 +159,15 @@ impl AllAppsPageState {
     }
 
     fn build_tile(&self, app: &DesktopAppEntry) -> Button {
-        let widget = build_app_tile_widget(app, self.config.grid().tile_size(), app.description());
+        let widget = build_app_tile_widget(
+            app,
+            self.config.grid().tile_size(),
+            self.config.grid().icon_size(),
+            self.config.grid().icon_center_y_ratio(),
+            self.config.grid().title_font_size(),
+            self.config.grid().title_top_margin(),
+            app.description(),
+        );
         attach_launch_handler(&widget, app, &self.window);
 
         let add_state = self.quick_access.clone();

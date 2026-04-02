@@ -29,8 +29,9 @@ pub fn install_global_css(display: &Display, config: &LauncherConfig) {
     register_theme_font(config);
     let provider = CssProvider::new();
     provider.load_from_string(&format!(
-        "{STYLE_CSS}\n{}\n{}",
+        "{STYLE_CSS}\n{}\n{}\n{}",
         sidebar_runtime_css(config),
+        grid_runtime_css(config),
         theme_runtime_css(config)
     ));
     style_context_add_provider_for_display(display, &provider, STYLE_PROVIDER_PRIORITY_APPLICATION);
@@ -85,6 +86,17 @@ fn theme_runtime_css(config: &LauncherConfig) -> String {
 
     let escaped_family = css_string_literal(font_family);
     format!("* {{ font-family: {escaped_family}, sans-serif; }}\n")
+}
+
+fn grid_runtime_css(config: &LauncherConfig) -> String {
+    format!(
+        r#"
+.launcher-app-tile-title {{
+  font-size: {}px;
+}}
+"#,
+        config.grid().title_font_size()
+    )
 }
 
 fn css_string_literal(input: &str) -> String {

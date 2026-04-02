@@ -145,6 +145,10 @@ pub struct GridSectionConfig {
     spacing: i32,
     columns: i32,
     tile_size: i32,
+    icon_size: i32,
+    icon_center_y_ratio: f32,
+    title_font_size: i32,
+    title_top_margin: i32,
     buttons: Vec<ButtonConfig>,
 }
 
@@ -683,12 +687,20 @@ impl GridSectionConfig {
         spacing: i32,
         columns: i32,
         tile_size: i32,
+        icon_size: i32,
+        icon_center_y_ratio: f32,
+        title_font_size: i32,
+        title_top_margin: i32,
         buttons: Vec<ButtonConfig>,
     ) -> Self {
         Self {
             spacing,
             columns,
             tile_size,
+            icon_size,
+            icon_center_y_ratio,
+            title_font_size,
+            title_top_margin,
             buttons,
         }
     }
@@ -705,8 +717,40 @@ impl GridSectionConfig {
         self.tile_size
     }
 
+    pub fn icon_size(&self) -> i32 {
+        self.icon_size
+    }
+
+    pub fn icon_center_y_ratio(&self) -> f32 {
+        self.icon_center_y_ratio
+    }
+
+    pub fn title_font_size(&self) -> i32 {
+        self.title_font_size
+    }
+
+    pub fn title_top_margin(&self) -> i32 {
+        self.title_top_margin
+    }
+
     pub fn set_tile_size(&mut self, tile_size: i32) {
         self.tile_size = tile_size;
+    }
+
+    pub fn set_icon_size(&mut self, icon_size: i32) {
+        self.icon_size = icon_size;
+    }
+
+    pub fn set_icon_center_y_ratio(&mut self, icon_center_y_ratio: f32) {
+        self.icon_center_y_ratio = icon_center_y_ratio;
+    }
+
+    pub fn set_title_font_size(&mut self, title_font_size: i32) {
+        self.title_font_size = title_font_size;
+    }
+
+    pub fn set_title_top_margin(&mut self, title_top_margin: i32) {
+        self.title_top_margin = title_top_margin;
     }
 
     pub fn set_buttons(&mut self, buttons: Vec<ButtonConfig>) {

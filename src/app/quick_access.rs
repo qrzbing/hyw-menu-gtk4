@@ -169,7 +169,15 @@ impl QuickAccessState {
     }
 
     fn build_quick_access_tile(&self, app: &DesktopAppEntry) -> Button {
-        let button = build_app_tile_widget(app, self.config.grid().tile_size(), None);
+        let button = build_app_tile_widget(
+            app,
+            self.config.grid().tile_size(),
+            self.config.grid().icon_size(),
+            self.config.grid().icon_center_y_ratio(),
+            self.config.grid().title_font_size(),
+            self.config.grid().title_top_margin(),
+            None,
+        );
         attach_launch_handler(&button, app, &self.window);
 
         let remove_state = self.clone();

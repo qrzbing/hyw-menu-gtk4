@@ -148,6 +148,25 @@ impl LauncherConfig {
         if let Some(tile_size) = file_config.grid.tile_size.or(legacy_tile_size) {
             self.grid_mut().set_tile_size(tile_size.clamp(72, 192));
         }
+
+        if let Some(icon_size) = file_config.grid.icon_size {
+            self.grid_mut().set_icon_size(icon_size.clamp(16, 96));
+        }
+
+        if let Some(icon_center_y_ratio) = file_config.grid.icon_center_y_ratio {
+            self.grid_mut()
+                .set_icon_center_y_ratio(icon_center_y_ratio.clamp(0.0, 1.0));
+        }
+
+        if let Some(title_font_size) = file_config.grid.title_font_size {
+            self.grid_mut()
+                .set_title_font_size(title_font_size.clamp(10, 32));
+        }
+
+        if let Some(title_top_margin) = file_config.grid.title_top_margin {
+            self.grid_mut()
+                .set_title_top_margin(title_top_margin.clamp(0, 48));
+        }
     }
 }
 
@@ -219,6 +238,10 @@ impl Default for LauncherConfig {
                 12,
                 4,
                 96,
+                30,
+                0.28,
+                13,
+                10,
                 vec![ButtonConfig::new(
                     "applications".to_owned(),
                     "Applications".to_owned(),

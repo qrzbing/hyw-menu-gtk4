@@ -376,6 +376,11 @@
   color: #f0e7d7;
 }
 
+.launcher-app-tile-icon-slot {
+  min-width: 42px;
+  min-height: 42px;
+}
+
 .launcher-app-tile-title {
   color: #f1e7d8;
   font-size: 13px;
