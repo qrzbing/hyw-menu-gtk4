@@ -17,15 +17,17 @@ pub struct WindowConfig {
     pub title: String,
     pub namespace: String,
     pub min_width: i32,
-    pub sidebar_width: i32,
 }
 
 #[derive(Debug, Clone)]
 pub struct SidebarConfig {
+    pub width: i32,
+    pub scale: f32,
+    pub button_scale: f32,
+    pub button_bg_opacity: f32,
     pub spacing: i32,
     pub outer_margin: i32,
     pub inner_margin: i32,
-    pub icon_scale: f32,
     pub middle_offset: i32,
     pub top_button: ButtonConfig,
     pub buttons: Vec<ButtonConfig>,
@@ -113,7 +115,10 @@ struct LauncherFileConfig {
 
 #[derive(Debug, Deserialize, Default)]
 struct SidebarFileConfig {
-    icon_scale: Option<f32>,
+    width: Option<i32>,
+    scale: Option<f32>,
+    button_scale: Option<f32>,
+    button_bg_opacity: Option<f32>,
     #[serde(default)]
     top_button: Option<ButtonFileConfig>,
     #[serde(default)]
@@ -138,8 +143,12 @@ enum SidebarButtonFileEntry {
 #[derive(Debug, Deserialize, Default, Clone)]
 struct ButtonFileConfig {
     id: Option<String>,
+    #[serde(alias = "name")]
     label: Option<String>,
+    icon: Option<String>,
+    #[serde(alias = "icon_name")]
     icon_name: Option<String>,
+    #[serde(alias = "icon_path")]
     icon_path: Option<PathBuf>,
 }
 
@@ -162,8 +171,20 @@ impl LauncherConfig {
     }
 
     fn apply_file_config(&mut self, file_config: LauncherFileConfig, config_dir: Option<&Path>) {
-        if let Some(icon_scale) = file_config.sidebar.icon_scale {
-            self.sidebar.icon_scale = icon_scale.clamp(0.2, 1.0);
+        if let Some(width) = file_config.sidebar.width {
+            self.sidebar.width = width.max(56);
+        }
+
+        if let Some(scale) = file_config.sidebar.scale {
+            self.sidebar.scale = scale.clamp(0.5, 2.0);
+        }
+
+        if let Some(button_scale) = file_config.sidebar.button_scale {
+            self.sidebar.button_scale = button_scale.clamp(0.4, 1.0);
+        }
+
+        if let Some(button_bg_opacity) = file_config.sidebar.button_bg_opacity {
+            self.sidebar.button_bg_opacity = button_bg_opacity.clamp(0.0, 1.0);
         }
 
         if let Some(top_button) = file_config.sidebar.top_button {
@@ -247,18 +268,20 @@ fn sidebar_button_config_from_file(
     match entry {
         SidebarButtonFileEntry::Label(label) => sidebar_button_config(&label),
         SidebarButtonFileEntry::Config(button) => {
-            let label = button
-                .label
-                .clone()
-                .or_else(|| button.id.clone())
-                .unwrap_or_else(|| "Button".to_string());
+            let default_text = button_display_text(
+                button.label.as_ref(),
+                button.id.as_ref(),
+                button.icon_path.as_ref(),
+            );
+            let label = default_text.clone().unwrap_or_else(|| "Button".to_string());
+            let (icon_name, icon_path) = resolve_button_icon_fields(&button, config_dir);
             let id = button.id.unwrap_or_else(|| slugify(&label));
 
             ButtonConfig {
                 id: id.clone(),
                 label,
-                icon_name: button.icon_name,
-                icon_path: resolve_config_path(config_dir, button.icon_path),
+                icon_name,
+                icon_path,
                 action: MenuAction::OpenSection(id),
             }
         }
@@ -270,21 +293,77 @@ fn apply_button_file_config(
     source: ButtonFileConfig,
     config_dir: Option<&Path>,
 ) {
+    let resolved_label = button_display_text(
+        source.label.as_ref(),
+        source.id.as_ref(),
+        source.icon_path.as_ref(),
+    );
+    let (icon_name, icon_path) = resolve_button_icon_fields(&source, config_dir);
+
     if let Some(id) = source.id {
         target.id = id;
     }
 
-    if let Some(label) = source.label {
+    if let Some(label) = resolved_label {
         target.label = label;
     }
 
-    if let Some(icon_name) = source.icon_name {
+    if let Some(icon_name) = icon_name {
         target.icon_name = Some(icon_name);
     }
 
-    if let Some(icon_path) = resolve_config_path(config_dir, source.icon_path) {
+    if let Some(icon_path) = icon_path {
         target.icon_path = Some(icon_path);
     }
+}
+
+fn button_display_text(
+    label: Option<&String>,
+    id: Option<&String>,
+    icon_path: Option<&PathBuf>,
+) -> Option<String> {
+    label
+        .cloned()
+        .or_else(|| id.cloned())
+        .or_else(|| icon_path.and_then(path_file_stem))
+}
+
+fn path_file_stem(path: &PathBuf) -> Option<String> {
+    path.file_stem()
+        .and_then(|stem| stem.to_str())
+        .map(|stem| stem.to_string())
+}
+
+fn resolve_button_icon_fields(
+    source: &ButtonFileConfig,
+    config_dir: Option<&Path>,
+) -> (Option<String>, Option<PathBuf>) {
+    if let Some(icon) = &source.icon {
+        return if looks_like_path(icon) {
+            (
+                None,
+                resolve_config_path(config_dir, Some(PathBuf::from(icon))),
+            )
+        } else {
+            (Some(icon.clone()), None)
+        };
+    }
+
+    (
+        source.icon_name.clone(),
+        resolve_config_path(config_dir, source.icon_path.clone()),
+    )
+}
+
+fn looks_like_path(icon: &str) -> bool {
+    icon.contains('/')
+        || icon.contains('\\')
+        || icon.starts_with('.')
+        || icon.ends_with(".png")
+        || icon.ends_with(".svg")
+        || icon.ends_with(".jpg")
+        || icon.ends_with(".jpeg")
+        || icon.ends_with(".webp")
 }
 
 fn resolve_config_path(config_dir: Option<&Path>, path: Option<PathBuf>) -> Option<PathBuf> {
@@ -322,13 +401,15 @@ impl Default for LauncherConfig {
                 title: "hyw-menu".to_string(),
                 namespace: "hyw-menu".to_string(),
                 min_width: 320,
-                sidebar_width: 96,
             },
             sidebar: SidebarConfig {
+                width: 96,
+                scale: 1.0,
+                button_scale: 0.82,
+                button_bg_opacity: 1.0,
                 spacing: 12,
                 outer_margin: 24,
                 inner_margin: 16,
-                icon_scale: 0.46,
                 middle_offset: 40,
                 top_button: ButtonConfig {
                     id: "close-menu".to_string(),

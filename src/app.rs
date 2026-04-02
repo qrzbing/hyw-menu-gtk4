@@ -37,7 +37,7 @@ impl LauncherApp {
 
         app.connect_activate(move |application| {
             let display = Display::default().expect("No display available");
-            install_global_css(&display);
+            install_global_css(&display, &config);
             let monitor = preferred_monitor(&display, hyprland.as_ref(), config.window.min_width)
                 .expect("No monitor available");
 
@@ -95,7 +95,7 @@ impl LauncherWindow {
     fn build_sidebar_nav(&self) -> GtkBox {
         let sidebar = GtkBox::new(Orientation::Vertical, 0);
         sidebar.add_css_class("launcher-sidebar");
-        sidebar.set_width_request(self.config.window.sidebar_width);
+        sidebar.set_width_request(self.sidebar_width());
         sidebar.set_margin_top(self.config.sidebar.outer_margin);
         sidebar.set_margin_bottom(self.config.sidebar.outer_margin);
         sidebar.set_margin_start(self.config.sidebar.inner_margin);
@@ -151,8 +151,6 @@ impl LauncherWindow {
     ) -> Button {
         let widget = Button::new();
         let icon_slot = GtkBox::new(Orientation::Vertical, 0);
-        let icon_size = self.sidebar_icon_size(button_size);
-        let icon_padding = self.sidebar_icon_padding(button_size, icon_size);
         widget.add_css_class("launcher-sidebar-button");
         widget.add_css_class(variant_class);
         icon_slot.add_css_class("launcher-sidebar-icon-slot");
@@ -160,14 +158,10 @@ impl LauncherWindow {
         icon_slot.set_valign(Align::Center);
         icon_slot.set_hexpand(false);
         icon_slot.set_vexpand(false);
-        icon_slot.set_width_request(icon_size);
-        icon_slot.set_height_request(icon_size);
-        icon_slot.set_margin_top(icon_padding);
-        icon_slot.set_margin_bottom(icon_padding);
-        icon_slot.set_margin_start(icon_padding);
-        icon_slot.set_margin_end(icon_padding);
+        icon_slot.set_width_request(button_size);
+        icon_slot.set_height_request(button_size);
 
-        icon_slot.append(&self.build_sidebar_icon(button, icon_size));
+        icon_slot.append(&self.build_sidebar_icon(button, button_size));
 
         widget.set_halign(Align::Center);
         widget.set_valign(Align::Start);
@@ -390,21 +384,15 @@ impl LauncherWindow {
     }
 
     fn sidebar_button_size(&self) -> i32 {
-        (self.config.window.sidebar_width - Self::sidebar_horizontal_padding() * 2).max(56)
-    }
-
-    fn sidebar_icon_size(&self, button_size: i32) -> i32 {
-        ((button_size as f32) * self.config.sidebar.icon_scale)
+        ((self.sidebar_width() as f32) * self.config.sidebar.button_scale)
             .round()
-            .clamp(16.0, button_size as f32) as i32
+            .clamp(40.0, self.sidebar_width() as f32) as i32
     }
 
-    fn sidebar_icon_padding(&self, button_size: i32, icon_size: i32) -> i32 {
-        ((button_size - icon_size) / 2).max(0)
-    }
-
-    fn sidebar_horizontal_padding() -> i32 {
-        10
+    fn sidebar_width(&self) -> i32 {
+        ((self.config.sidebar.width as f32) * self.config.sidebar.scale)
+            .round()
+            .max(56.0) as i32
     }
 
     fn sidebar_icon_fallback_text(button: &ButtonConfig) -> String {
