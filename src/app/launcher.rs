@@ -101,7 +101,7 @@ impl LauncherWindow {
                     navigator.activate_section(section);
                 }
             }
-            MenuAction::None | MenuAction::LaunchCommand(_) => {}
+            MenuAction::None => {}
         });
     }
 
@@ -113,9 +113,6 @@ impl LauncherWindow {
             MenuAction::CloseMenu => format!("{} -> close ({icon})", button.id()),
             MenuAction::OpenSection(section) => {
                 format!("{} -> section:{section} ({icon})", button.id())
-            }
-            MenuAction::LaunchCommand(command) => {
-                format!("{} -> command:{command} ({icon})", button.id())
             }
         }
     }
