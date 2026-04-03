@@ -411,8 +411,7 @@ impl LauncherWindow {
         label
             .chars()
             .next()
-            .map(|ch| ch.to_uppercase().to_string())
-            .unwrap_or_else(|| "?".to_owned())
+            .map_or_else(|| "?".to_owned(), |ch| ch.to_uppercase().to_string())
     }
 
     fn approx_width_chars(width: i32) -> i32 {

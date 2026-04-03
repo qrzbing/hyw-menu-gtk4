@@ -126,8 +126,7 @@ impl AllAppsPageState {
             || app.id().to_lowercase().contains(query)
             || app
                 .description()
-                .map(|description| description.to_lowercase().contains(query))
-                .unwrap_or(false)
+                .is_some_and(|description| description.to_lowercase().contains(query))
     }
 
     fn build_scroller(&self, apps: &[DesktopAppEntry]) -> ScrolledWindow {
@@ -139,7 +138,7 @@ impl AllAppsPageState {
         scroller.add_css_class("launcher-apps-scroller");
 
         let grid = Grid::new();
-        let spacing = self.config.grid().tile_spacing().max(0) as u32;
+        let spacing = self.config.grid().tile_spacing().max(0).cast_unsigned();
         grid.set_column_spacing(spacing);
         grid.set_row_spacing(spacing);
         grid.set_halign(Align::Start);

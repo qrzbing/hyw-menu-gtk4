@@ -39,7 +39,7 @@ rustPlatform.buildRustPackage {
   strictDeps = true;
 
   meta = {
-    description = "GTK4 launcher/menu for Hyprland";
+    description = "Hyw GTK4 launcher/menu for Hyprland";
     homepage = "https://github.com/qrzbing/hyw-menu-gtk4";
     mainProgram = "hyw-menu-gtk4";
     platforms = lib.platforms.linux;

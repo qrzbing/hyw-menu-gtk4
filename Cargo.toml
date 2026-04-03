@@ -2,6 +2,12 @@
 name = "hyw-menu-gtk4"
 version = "0.1.0"
 edition = "2024"
+description = "Hyw GTK4 launcher/menu for Hyprland"
+license   = "MIT"
+repository = "https://github.com/qrzbing/hyw-menu-gtk4"
+readme = "README.md"
+keywords = ["hyprland", "theme", "gtk4"]
+categories = ["gui", "os", "command-line-utilities"]
 
 [dependencies]
 clap = { version = "4.6.0", features = ["derive"] }
@@ -11,3 +17,40 @@ serde = { version = "1.0.228", features = ["derive"] }
 tokio = { version = "1.47.1", features = ["full"] }
 toml = "0.9.8"
 wayle-hyprland = "0.1.1"
+
+[lints.clippy]
+# Deny
+all = { level = "deny", priority = -1 }
+pedantic = { level = "warn", priority = -1 }
+cargo_common_metadata = "deny"
+case_sensitive_file_extension_comparisons = "deny"
+unnecessary_wraps = "deny"
+
+# Warn
+cargo = { level = "warn", priority = -1 }
+
+# Allow
+assigning_clones = "allow"
+redundant_closure_for_method_calls = "allow"
+needless_raw_string_hashes = "allow"
+needless_pass_by_value = "allow"
+map_unwrap_or = "allow"
+unused_self = "allow"
+too_many_arguments = "allow"
+cast_possible_wrap = "allow"
+cast_possible_truncation = "allow"
+comparison_chain = "allow"          # This lint makes **ZERO** sense
+missing_errors_doc = "allow"
+missing_panics_doc = "allow"
+module_name_repetitions = "allow"
+multiple_crate_versions = "allow"   # TODO: turn into `warn` when working
+negative_feature_names = "allow"    # TODO: turn into 'warn' when working
+ptr_as_ptr = "allow"
+similar_names = "allow"
+struct_field_names = "allow"        # ????
+too_many_lines = "allow"
+type_repetition_in_bounds = "allow"
+unreadable_literal = "allow"
+unsafe_derive_deserialize = "allow"
+used_underscore_binding = "allow"
+cast_precision_loss = "allow"

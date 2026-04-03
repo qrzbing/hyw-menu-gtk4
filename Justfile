@@ -4,9 +4,12 @@ _default:
 _fmt:
     cargo +nightly fmt
 
-build: _fmt
+clippy:
+    cargo clippy
+
+build: _fmt clippy
     cargo build --release
 
-run: _fmt
+run: build
     cargo run -- --config ./docs-ai/config.example.toml
 

@@ -19,9 +19,11 @@ impl LauncherConfig {
         let config_dir = config_root_dir(config_path.as_deref());
         config.set_quick_access_path(config_dir.join("quick-access.toml"));
 
-        let resolved_path = match config_path {
-            Some(path) => Some(path),
-            None => default_config_path().filter(|path| path.exists()),
+        let resolved_path = if let Some(path) = config_path {
+            Some(path)
+        } else {
+            let path = default_config_path();
+            path.exists().then_some(path)
         };
 
         let Some(path) = resolved_path else {
@@ -269,8 +271,8 @@ impl Default for LauncherConfig {
     }
 }
 
-fn default_config_path() -> Option<PathBuf> {
-    Some(default_config_dir().join("config.toml"))
+fn default_config_path() -> PathBuf {
+    default_config_dir().join("config.toml")
 }
 
 fn default_config_dir() -> PathBuf {
@@ -284,8 +286,7 @@ fn default_config_dir() -> PathBuf {
 fn config_root_dir(config_path: Option<&Path>) -> PathBuf {
     config_path
         .and_then(Path::parent)
-        .map(Path::to_path_buf)
-        .unwrap_or_else(default_config_dir)
+        .map_or_else(default_config_dir, Path::to_path_buf)
 }
 
 fn sidebar_button_config(label: &str) -> ButtonConfig {
@@ -556,14 +557,14 @@ fn resolve_button_icon_fields(
 }
 
 fn looks_like_path(icon: &str) -> bool {
-    icon.contains('/')
-        || icon.contains('\\')
-        || icon.starts_with('.')
-        || icon.ends_with(".png")
-        || icon.ends_with(".svg")
-        || icon.ends_with(".jpg")
-        || icon.ends_with(".jpeg")
-        || icon.ends_with(".webp")
+    let has_image_extension = Path::new(icon).extension().is_some_and(|ext| {
+        matches!(
+            ext.to_string_lossy().to_ascii_lowercase().as_str(),
+            "png" | "svg" | "jpg" | "jpeg" | "webp"
+        )
+    });
+
+    icon.contains('/') || icon.contains('\\') || icon.starts_with('.') || has_image_extension
 }
 
 fn resolve_config_path(config_dir: Option<&Path>, path: Option<PathBuf>) -> Option<PathBuf> {

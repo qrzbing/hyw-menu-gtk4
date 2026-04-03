@@ -19,11 +19,10 @@ pub(crate) fn build_app_tile_widget(
     let widget = Button::new();
     let content = GtkBox::new(Orientation::Vertical, 8);
     let icon_slot = GtkBox::new(Orientation::Vertical, 0);
-    let icon = app
-        .app_info()
-        .icon()
-        .map(|icon| Image::from_gicon(&icon))
-        .unwrap_or_else(|| Image::from_icon_name("application-x-executable-symbolic"));
+    let icon = app.app_info().icon().map_or_else(
+        || Image::from_icon_name("application-x-executable-symbolic"),
+        |icon| Image::from_gicon(&icon),
+    );
     let title = Label::new(Some(app.name()));
     let content_size = (tile_size - 16).max(40);
     let title_width = (tile_size - 28).max(24);
