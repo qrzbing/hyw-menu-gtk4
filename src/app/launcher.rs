@@ -143,11 +143,17 @@ impl LauncherWindow {
     }
 
     fn preferred_width(monitor: &gdk::Monitor, config: &LauncherConfig) -> i32 {
+        let minimum_required = Self::minimum_required_width(config);
         let ratio_width =
             ((monitor.geometry().width() as f32) * config.window().width_ratio()).round() as i32;
-        ratio_width
+        let preferred = ratio_width
             .max(config.window().min_width())
-            .max(Self::minimum_required_width(config))
+            .max(minimum_required);
+
+        match config.window().max_width() {
+            Some(max_width) => preferred.min(max_width.max(minimum_required)),
+            None => preferred,
+        }
     }
 
     fn preferred_height(monitor: &gdk::Monitor, config: &LauncherConfig) -> i32 {

@@ -48,6 +48,10 @@ impl LauncherConfig {
             self.window_mut().set_min_width(min_width.max(320));
         }
 
+        if let Some(max_width) = file_config.window.max_width {
+            self.window_mut().set_max_width(Some(max_width.max(320)));
+        }
+
         if let Some(width_ratio) = file_config.window.width_ratio {
             self.window_mut()
                 .set_width_ratio(width_ratio.clamp(0.25, 0.5));
@@ -188,6 +192,7 @@ impl Default for LauncherConfig {
                 "hyw-menu".to_owned(),
                 "hyw-menu".to_owned(),
                 560,
+                Some(720),
                 0.34,
                 0.82,
             ),

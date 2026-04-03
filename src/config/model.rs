@@ -22,6 +22,7 @@ pub struct WindowConfig {
     title: String,
     namespace: String,
     min_width: i32,
+    max_width: Option<i32>,
     width_ratio: f32,
     height_ratio: f32,
 }
@@ -274,6 +275,7 @@ impl WindowConfig {
         title: String,
         namespace: String,
         min_width: i32,
+        max_width: Option<i32>,
         width_ratio: f32,
         height_ratio: f32,
     ) -> Self {
@@ -281,6 +283,7 @@ impl WindowConfig {
             title,
             namespace,
             min_width,
+            max_width,
             width_ratio,
             height_ratio,
         }
@@ -298,6 +301,10 @@ impl WindowConfig {
         self.min_width
     }
 
+    pub fn max_width(&self) -> Option<i32> {
+        self.max_width
+    }
+
     pub fn width_ratio(&self) -> f32 {
         self.width_ratio
     }
@@ -308,6 +315,10 @@ impl WindowConfig {
 
     pub fn set_min_width(&mut self, min_width: i32) {
         self.min_width = min_width;
+    }
+
+    pub fn set_max_width(&mut self, max_width: Option<i32>) {
+        self.max_width = max_width;
     }
 
     pub fn set_width_ratio(&mut self, width_ratio: f32) {

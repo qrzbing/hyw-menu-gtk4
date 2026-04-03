@@ -28,6 +28,7 @@ pub(super) struct ThemeFileConfig {
 #[derive(Debug, Deserialize, Default)]
 pub(super) struct WindowFileConfig {
     pub(super) min_width: Option<i32>,
+    pub(super) max_width: Option<i32>,
     pub(super) width_ratio: Option<f32>,
     pub(super) height_ratio: Option<f32>,
 }
