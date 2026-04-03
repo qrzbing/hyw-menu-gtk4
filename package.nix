@@ -1,9 +1,11 @@
-{ lib
-, rustPlatform
-, pkg-config
-, wrapGAppsHook4
-, gtk4
-, gtk4-layer-shell
+{
+  lib,
+  rustPlatform,
+  pkg-config,
+  wrapGAppsHook4,
+  gst_all_1,
+  gtk4,
+  gtk4-layer-shell,
 }:
 
 rustPlatform.buildRustPackage {
@@ -12,7 +14,8 @@ rustPlatform.buildRustPackage {
 
   src = lib.cleanSourceWith {
     src = ./.;
-    filter = path: type:
+    filter =
+      path: type:
       let
         baseName = baseNameOf path;
       in
@@ -32,6 +35,9 @@ rustPlatform.buildRustPackage {
   ];
 
   buildInputs = [
+    gst_all_1.gstreamer
+    gst_all_1.gst-plugins-base
+    gst_all_1.gst-plugins-rs
     gtk4
     gtk4-layer-shell
   ];

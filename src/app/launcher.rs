@@ -1,9 +1,15 @@
+use std::path::Path;
 use std::sync::Arc;
 
+use gst::prelude::*;
+use gstreamer as gst;
 use gtk4::gdk::Display;
 use gtk4::glib::Propagation;
 use gtk4::prelude::*;
-use gtk4::{Application, ApplicationWindow, Box as GtkBox, Button, EventControllerKey, Stack, gdk};
+use gtk4::{
+    Align, Application, ApplicationWindow, Box as GtkBox, Button, EventControllerKey, Orientation,
+    Picture, Stack, gdk,
+};
 use gtk4_layer_shell::{Edge, KeyboardMode, Layer, LayerShell};
 
 use super::catalog::DesktopAppCatalog;
@@ -24,6 +30,9 @@ pub(crate) struct LauncherWindow {
     config: Arc<LauncherConfig>,
 }
 
+const PAIMON_VIDEO_WIDTH: i32 = 1280;
+const PAIMON_VIDEO_HEIGHT: i32 = 1800;
+
 impl LauncherApp {
     pub fn new(config: LauncherConfig) -> Self {
         Self {
@@ -41,6 +50,7 @@ impl LauncherApp {
 
         app.connect_activate(move |application| {
             let display = Display::default().expect("no display available");
+            gst::init().expect("failed to initialize gstreamer");
             install_global_css(&display, &config);
             let monitor =
                 preferred_monitor(&display, hyprland.as_ref(), config.window().min_width())
@@ -66,6 +76,7 @@ impl LauncherWindow {
             .default_width(Self::preferred_width(monitor, &config))
             .default_height(Self::preferred_height(monitor, &config))
             .build();
+        window.add_css_class("launcher-window");
 
         let launcher_window = Self { window, config };
         launcher_window.configure_layer_shell(monitor);
@@ -142,12 +153,14 @@ impl LauncherWindow {
     }
 
     fn preferred_width(monitor: &gdk::Monitor, config: &LauncherConfig) -> i32 {
-        let minimum_required = Self::minimum_required_width(config);
+        let character_width = Self::character_video_width(monitor, config);
+        let minimum_required = Self::minimum_required_width(config) + character_width;
         let ratio_width =
             ((monitor.geometry().width() as f32) * config.window().width_ratio()).round() as i32;
         let preferred = ratio_width
             .max(config.window().min_width())
-            .max(minimum_required);
+            .max(Self::minimum_required_width(config))
+            + character_width;
 
         match config.window().max_width() {
             Some(max_width) => preferred.min(max_width.max(minimum_required)),
@@ -181,6 +194,28 @@ impl LauncherWindow {
         }
     }
 
+    fn character_video_width(monitor: &gdk::Monitor, config: &LauncherConfig) -> i32 {
+        if Self::character_video_path(config).is_none() {
+            return 0;
+        }
+
+        let video_height = ((Self::preferred_height(monitor, config) as f32)
+            * config.character_video().height_ratio())
+        .round() as i32;
+        let video_width = (video_height * PAIMON_VIDEO_WIDTH) / PAIMON_VIDEO_HEIGHT;
+
+        (video_width + config.character_video().offset_x().max(0)).max(0)
+    }
+
+    fn character_video_path(config: &LauncherConfig) -> Option<&Path> {
+        config
+            .character_video()
+            .enabled()
+            .then(|| config.character_video().path())
+            .flatten()
+            .filter(|path| path.is_file())
+    }
+
     fn mount_content(&self) {
         let root = self.build_root_container();
         self.window.set_child(Some(&root));
@@ -204,12 +239,109 @@ impl LauncherWindow {
         let navigator = LauncherNavigator::new(&content_stack);
         self.populate_content_stack(&content_stack, &quick_access, &all_apps);
 
-        let root = GtkBox::new(gtk4::Orientation::Horizontal, 0);
+        let root = GtkBox::new(Orientation::Horizontal, 0);
+        let menu_surface = GtkBox::new(Orientation::Horizontal, 0);
+
         root.add_css_class("launcher-root");
-        root.append(&self.build_sidebar_nav(&navigator));
-        root.append(&self.build_right_panel(&content_stack, &navigator, &all_apps));
+        root.set_hexpand(true);
+        root.set_vexpand(true);
+
+        menu_surface.add_css_class("launcher-menu-surface");
+        menu_surface.append(&self.build_sidebar_nav(&navigator));
+        menu_surface.append(&self.build_right_panel(&content_stack, &navigator, &all_apps));
+        root.append(&menu_surface);
+
+        if let Some(character_slot) = self.build_character_video_slot() {
+            root.append(&character_slot);
+        }
+
         navigator.activate_section(&self.initial_section_id());
         root
+    }
+
+    fn build_character_video_slot(&self) -> Option<GtkBox> {
+        let video_path = Self::character_video_path(self.config())?;
+
+        let video_height = ((self.window.default_height() as f32)
+            * self.config().character_video().height_ratio())
+        .round() as i32;
+        let video_width = (video_height * PAIMON_VIDEO_WIDTH) / PAIMON_VIDEO_HEIGHT;
+        let slot = GtkBox::new(Orientation::Vertical, 0);
+        let (picture, playbin) =
+            self.build_character_picture(video_path, video_width, video_height)?;
+
+        self.install_character_player(playbin);
+        slot.add_css_class("launcher-character-slot");
+        slot.set_width_request(
+            (video_width + self.config().character_video().offset_x().max(0)).max(0),
+        );
+        slot.set_hexpand(false);
+        slot.set_vexpand(true);
+        slot.set_halign(Align::End);
+        slot.set_valign(Align::Fill);
+        slot.set_margin_start(self.config().character_video().offset_x());
+        picture.set_margin_bottom(self.config().character_video().offset_y());
+        slot.append(&picture);
+
+        Some(slot)
+    }
+
+    fn build_character_picture(
+        &self,
+        video_path: &Path,
+        video_width: i32,
+        video_height: i32,
+    ) -> Option<(Picture, gst::Element)> {
+        let sink = gst::ElementFactory::make("gtk4paintablesink")
+            .property("window-width", video_width.cast_unsigned())
+            .property("window-height", video_height.cast_unsigned())
+            .build()
+            .map_err(|error| {
+                eprintln!("failed to create gtk4paintablesink: {error}");
+                error
+            })
+            .ok()?;
+        let playbin = gst::ElementFactory::make("playbin3")
+            .property(
+                "uri",
+                gtk4::gio::File::for_path(video_path).uri().to_string(),
+            )
+            .property("video-sink", &sink)
+            .property("mute", true)
+            .build()
+            .map_err(|error| {
+                eprintln!("failed to create playbin3 for character video: {error}");
+                error
+            })
+            .ok()?;
+        let paintable = sink.property::<Option<gdk::Paintable>>("paintable")?;
+        let picture = Picture::for_paintable(&paintable);
+
+        picture.add_css_class("launcher-character-video");
+        picture.set_halign(Align::End);
+        picture.set_valign(Align::End);
+        picture.set_focusable(false);
+        picture.set_can_target(false);
+        picture.set_hexpand(false);
+        picture.set_vexpand(false);
+        picture.set_width_request(video_width);
+        picture.set_height_request(video_height);
+        picture.set_can_shrink(true);
+
+        if let Err(error) = playbin.set_state(gst::State::Playing) {
+            eprintln!("failed to start character video pipeline: {error}");
+            let _ = playbin.set_state(gst::State::Null);
+            return None;
+        }
+
+        Some((picture, playbin))
+    }
+
+    fn install_character_player(&self, playbin: gst::Element) {
+        self.window.connect_close_request(move |_| {
+            let _ = playbin.set_state(gst::State::Null);
+            Propagation::Proceed
+        });
     }
 
     fn initial_section_id(&self) -> String {

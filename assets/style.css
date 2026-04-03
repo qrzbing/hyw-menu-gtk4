@@ -1,4 +1,15 @@
+.launcher-window,
+.launcher-window:backdrop {
+  background: transparent;
+  background-color: transparent;
+  box-shadow: none;
+}
+
 .launcher-root {
+  background: transparent;
+}
+
+.launcher-menu-surface {
   background: linear-gradient(180deg, #f1e6d7 0%, #e7dac8 100%);
   color: #f6efe4;
 }
@@ -12,6 +23,11 @@
 
 .launcher-right-panel {
   padding: 0;
+}
+
+.launcher-character-slot,
+.launcher-character-video {
+  background: transparent;
 }
 
 .launcher-content-stack {

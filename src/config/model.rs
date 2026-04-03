@@ -6,6 +6,7 @@ pub struct LauncherConfig {
     quick_access_path: PathBuf,
     theme: ThemeConfig,
     window: WindowConfig,
+    character_video: CharacterVideoConfig,
     sidebar: SidebarConfig,
     top_panels: TopPanelsConfig,
     grid: GridSectionConfig,
@@ -25,6 +26,15 @@ pub struct WindowConfig {
     max_width: Option<i32>,
     width_ratio: f32,
     height_ratio: f32,
+}
+
+#[derive(Debug, Clone)]
+pub struct CharacterVideoConfig {
+    enabled: bool,
+    path: Option<PathBuf>,
+    height_ratio: f32,
+    offset_x: i32,
+    offset_y: i32,
 }
 
 #[derive(Debug, Clone)]
@@ -177,6 +187,7 @@ impl LauncherConfig {
         quick_access_path: PathBuf,
         theme: ThemeConfig,
         window: WindowConfig,
+        character_video: CharacterVideoConfig,
         sidebar: SidebarConfig,
         top_panels: TopPanelsConfig,
         grid: GridSectionConfig,
@@ -186,6 +197,7 @@ impl LauncherConfig {
             quick_access_path,
             theme,
             window,
+            character_video,
             sidebar,
             top_panels,
             grid,
@@ -226,6 +238,14 @@ impl LauncherConfig {
 
     pub(crate) fn sidebar_mut(&mut self) -> &mut SidebarConfig {
         &mut self.sidebar
+    }
+
+    pub fn character_video(&self) -> &CharacterVideoConfig {
+        &self.character_video
+    }
+
+    pub(crate) fn character_video_mut(&mut self) -> &mut CharacterVideoConfig {
+        &mut self.character_video
     }
 
     pub fn top_panels(&self) -> &TopPanelsConfig {
@@ -327,6 +347,64 @@ impl WindowConfig {
 
     pub fn set_height_ratio(&mut self, height_ratio: f32) {
         self.height_ratio = height_ratio;
+    }
+}
+
+impl CharacterVideoConfig {
+    pub(crate) fn new(
+        enabled: bool,
+        path: Option<PathBuf>,
+        height_ratio: f32,
+        offset_x: i32,
+        offset_y: i32,
+    ) -> Self {
+        Self {
+            enabled,
+            path,
+            height_ratio,
+            offset_x,
+            offset_y,
+        }
+    }
+
+    pub fn enabled(&self) -> bool {
+        self.enabled
+    }
+
+    pub fn path(&self) -> Option<&Path> {
+        self.path.as_deref()
+    }
+
+    pub fn height_ratio(&self) -> f32 {
+        self.height_ratio
+    }
+
+    pub fn offset_x(&self) -> i32 {
+        self.offset_x
+    }
+
+    pub fn offset_y(&self) -> i32 {
+        self.offset_y
+    }
+
+    pub fn set_enabled(&mut self, enabled: bool) {
+        self.enabled = enabled;
+    }
+
+    pub fn set_path(&mut self, path: Option<PathBuf>) {
+        self.path = path;
+    }
+
+    pub fn set_height_ratio(&mut self, height_ratio: f32) {
+        self.height_ratio = height_ratio;
+    }
+
+    pub fn set_offset_x(&mut self, offset_x: i32) {
+        self.offset_x = offset_x;
+    }
+
+    pub fn set_offset_y(&mut self, offset_y: i32) {
+        self.offset_y = offset_y;
     }
 }
 

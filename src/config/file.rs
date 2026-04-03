@@ -12,6 +12,8 @@ pub(super) struct LauncherFileConfig {
     #[serde(default)]
     pub(super) window: WindowFileConfig,
     #[serde(default)]
+    pub(super) character_video: CharacterVideoFileConfig,
+    #[serde(default)]
     pub(super) sidebar: SidebarFileConfig,
     #[serde(default)]
     pub(super) top_panels: TopPanelsFileConfig,
@@ -31,6 +33,15 @@ pub(super) struct WindowFileConfig {
     pub(super) max_width: Option<i32>,
     pub(super) width_ratio: Option<f32>,
     pub(super) height_ratio: Option<f32>,
+}
+
+#[derive(Debug, Deserialize, Default)]
+pub(super) struct CharacterVideoFileConfig {
+    pub(super) enabled: Option<bool>,
+    pub(super) path: Option<PathBuf>,
+    pub(super) height_ratio: Option<f32>,
+    pub(super) offset_x: Option<i32>,
+    pub(super) offset_y: Option<i32>,
 }
 
 #[derive(Debug, Deserialize, Default)]

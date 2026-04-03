@@ -7,10 +7,11 @@ use super::file::{
     SearchPanelFileConfig, SidebarButtonFileEntry, TextPanelFileConfig, TopPanelFileConfig,
 };
 use super::model::{
-    AvatarPanelConfig, ButtonConfig, GridSectionConfig, LauncherConfig, MenuAction,
-    ProfileItemConfig, ProfilePanelConfig, ProfileProgressItemConfig, ProfileTextItemConfig,
-    SearchPanelConfig, SidebarConfig, SidebarMetrics, SidebarSizing, SidebarSpacing,
-    TextPanelConfig, TextPanelVariant, ThemeConfig, TopPanelConfig, TopPanelsConfig, WindowConfig,
+    AvatarPanelConfig, ButtonConfig, CharacterVideoConfig, GridSectionConfig, LauncherConfig,
+    MenuAction, ProfileItemConfig, ProfilePanelConfig, ProfileProgressItemConfig,
+    ProfileTextItemConfig, SearchPanelConfig, SidebarConfig, SidebarMetrics, SidebarSizing,
+    SidebarSpacing, TextPanelConfig, TextPanelVariant, ThemeConfig, TopPanelConfig,
+    TopPanelsConfig, WindowConfig,
 };
 
 impl LauncherConfig {
@@ -62,6 +63,29 @@ impl LauncherConfig {
         if let Some(height_ratio) = file_config.window.height_ratio {
             self.window_mut()
                 .set_height_ratio(height_ratio.clamp(0.5, 0.95));
+        }
+
+        if let Some(enabled) = file_config.character_video.enabled {
+            self.character_video_mut().set_enabled(enabled);
+        }
+
+        if let Some(path) = resolve_config_path(config_dir, file_config.character_video.path) {
+            self.character_video_mut().set_path(Some(path));
+        }
+
+        if let Some(height_ratio) = file_config.character_video.height_ratio {
+            self.character_video_mut()
+                .set_height_ratio(height_ratio.clamp(0.1, 1.5));
+        }
+
+        if let Some(offset_x) = file_config.character_video.offset_x {
+            self.character_video_mut()
+                .set_offset_x(offset_x.clamp(-512, 512));
+        }
+
+        if let Some(offset_y) = file_config.character_video.offset_y {
+            self.character_video_mut()
+                .set_offset_y(offset_y.clamp(-512, 512));
         }
 
         if let Some(width) = file_config.sidebar.width {
@@ -198,6 +222,7 @@ impl Default for LauncherConfig {
                 0.34,
                 0.82,
             ),
+            CharacterVideoConfig::new(true, None, 1.0, 0, 0),
             SidebarConfig::new(
                 SidebarMetrics::new(
                     SidebarSizing::new(96, 1.0, 0.82, 1.0),
