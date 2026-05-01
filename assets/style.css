@@ -1,12 +1,22 @@
-.launcher-window,
-.launcher-window:backdrop {
+window.launcher-window,
+window.launcher-window:backdrop,
+window.background.launcher-window,
+window.background.launcher-window:backdrop {
   background: transparent;
   background-color: transparent;
+  background-image: none;
   box-shadow: none;
 }
 
+window.launcher-window > widget,
+window.launcher-window > box,
+box.launcher-menu-layer,
+overlay.launcher-root,
+box.launcher-root,
 .launcher-root {
   background: transparent;
+  background-color: transparent;
+  background-image: none;
 }
 
 .launcher-menu-surface {
@@ -25,9 +35,20 @@
   padding: 0;
 }
 
+box.launcher-character-slot,
+picture.launcher-character-video,
+.launcher-character-outline,
 .launcher-character-slot,
 .launcher-character-video {
   background: transparent;
+  background-color: transparent;
+  background-image: none;
+  border: none;
+  box-shadow: none;
+}
+
+.launcher-character-outline {
+  border: 1px solid rgba(255, 248, 235, 0.38);
 }
 
 .launcher-content-stack {

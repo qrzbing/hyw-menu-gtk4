@@ -73,6 +73,10 @@ impl LauncherConfig {
             self.character_video_mut().set_path(Some(path));
         }
 
+        if let Some(outline_only) = file_config.character_video.outline_only {
+            self.character_video_mut().set_outline_only(outline_only);
+        }
+
         if let Some(height_ratio) = file_config.character_video.height_ratio {
             self.character_video_mut()
                 .set_height_ratio(height_ratio.clamp(0.1, 1.5));
@@ -222,7 +226,7 @@ impl Default for LauncherConfig {
                 0.34,
                 0.82,
             ),
-            CharacterVideoConfig::new(true, None, 1.0, 0, 0),
+            CharacterVideoConfig::new(true, None, false, 1.0, 0, 0),
             SidebarConfig::new(
                 SidebarMetrics::new(
                     SidebarSizing::new(96, 1.0, 0.82, 1.0),

@@ -32,6 +32,7 @@ pub struct WindowConfig {
 pub struct CharacterVideoConfig {
     enabled: bool,
     path: Option<PathBuf>,
+    outline_only: bool,
     height_ratio: f32,
     offset_x: i32,
     offset_y: i32,
@@ -354,6 +355,7 @@ impl CharacterVideoConfig {
     pub(crate) fn new(
         enabled: bool,
         path: Option<PathBuf>,
+        outline_only: bool,
         height_ratio: f32,
         offset_x: i32,
         offset_y: i32,
@@ -361,6 +363,7 @@ impl CharacterVideoConfig {
         Self {
             enabled,
             path,
+            outline_only,
             height_ratio,
             offset_x,
             offset_y,
@@ -373,6 +376,10 @@ impl CharacterVideoConfig {
 
     pub fn path(&self) -> Option<&Path> {
         self.path.as_deref()
+    }
+
+    pub fn outline_only(&self) -> bool {
+        self.outline_only
     }
 
     pub fn height_ratio(&self) -> f32 {
@@ -393,6 +400,10 @@ impl CharacterVideoConfig {
 
     pub fn set_path(&mut self, path: Option<PathBuf>) {
         self.path = path;
+    }
+
+    pub fn set_outline_only(&mut self, outline_only: bool) {
+        self.outline_only = outline_only;
     }
 
     pub fn set_height_ratio(&mut self, height_ratio: f32) {

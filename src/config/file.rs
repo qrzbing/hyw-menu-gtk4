@@ -39,6 +39,7 @@ pub(super) struct WindowFileConfig {
 pub(super) struct CharacterVideoFileConfig {
     pub(super) enabled: Option<bool>,
     pub(super) path: Option<PathBuf>,
+    pub(super) outline_only: Option<bool>,
     pub(super) height_ratio: Option<f32>,
     pub(super) offset_x: Option<i32>,
     pub(super) offset_y: Option<i32>,
