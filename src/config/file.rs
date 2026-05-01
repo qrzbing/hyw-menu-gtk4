@@ -51,6 +51,13 @@ pub(super) struct SidebarFileConfig {
     pub(super) scale: Option<f32>,
     pub(super) button_scale: Option<f32>,
     pub(super) button_bg_opacity: Option<f32>,
+    pub(super) background_start: Option<String>,
+    pub(super) background_end: Option<String>,
+    pub(super) button_fg: Option<String>,
+    pub(super) button_bg: Option<String>,
+    pub(super) button_border: Option<String>,
+    pub(super) button_active_bg: Option<String>,
+    pub(super) button_active_border: Option<String>,
     #[serde(default)]
     pub(super) top_button: Option<ButtonFileConfig>,
     #[serde(default)]

@@ -44,6 +44,7 @@ pub struct SidebarConfig {
     scale: f32,
     button_scale: f32,
     button_bg_opacity: f32,
+    colors: SidebarColors,
     spacing: i32,
     outer_margin: i32,
     middle_offset: i32,
@@ -64,6 +65,7 @@ pub(crate) struct SidebarSizing {
     scale: f32,
     button_scale: f32,
     button_bg_opacity: f32,
+    colors: SidebarColors,
 }
 
 #[derive(Debug, Clone)]
@@ -150,6 +152,25 @@ pub struct SearchPanelConfig {
     title: Option<String>,
     placeholder: String,
     min_height: i32,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct SidebarColors {
+    background_start: CssColor,
+    background_end: CssColor,
+    button_fg: CssColor,
+    button_bg: CssColor,
+    button_border: CssColor,
+    button_active_bg: CssColor,
+    button_active_border: CssColor,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct CssColor {
+    red: u8,
+    green: u8,
+    blue: u8,
+    alpha: u8,
 }
 
 #[derive(Debug, Clone)]
@@ -431,6 +452,7 @@ impl SidebarConfig {
             scale: metrics.sizing.scale,
             button_scale: metrics.sizing.button_scale,
             button_bg_opacity: metrics.sizing.button_bg_opacity,
+            colors: metrics.sizing.colors,
             spacing: metrics.spacing.spacing,
             outer_margin: metrics.spacing.outer_margin,
             middle_offset: metrics.spacing.middle_offset,
@@ -454,6 +476,10 @@ impl SidebarConfig {
 
     pub fn button_bg_opacity(&self) -> f32 {
         self.button_bg_opacity
+    }
+
+    pub fn colors(&self) -> SidebarColors {
+        self.colors
     }
 
     pub fn spacing(&self) -> i32 {
@@ -496,6 +522,10 @@ impl SidebarConfig {
         self.button_bg_opacity = button_bg_opacity;
     }
 
+    pub fn set_colors(&mut self, colors: SidebarColors) {
+        self.colors = colors;
+    }
+
     pub fn set_buttons(&mut self, buttons: Vec<ButtonConfig>) {
         self.buttons = buttons;
     }
@@ -516,12 +546,19 @@ impl SidebarMetrics {
 }
 
 impl SidebarSizing {
-    pub(crate) fn new(width: i32, scale: f32, button_scale: f32, button_bg_opacity: f32) -> Self {
+    pub(crate) fn new(
+        width: i32,
+        scale: f32,
+        button_scale: f32,
+        button_bg_opacity: f32,
+        colors: SidebarColors,
+    ) -> Self {
         Self {
             width,
             scale,
             button_scale,
             button_bg_opacity,
+            colors,
         }
     }
 }
@@ -781,6 +818,111 @@ impl SearchPanelConfig {
 
     pub fn min_height(&self) -> i32 {
         self.min_height
+    }
+}
+
+impl SidebarColors {
+    pub const fn new(
+        background_start: CssColor,
+        background_end: CssColor,
+        button_fg: CssColor,
+        button_bg: CssColor,
+        button_border: CssColor,
+        button_active_bg: CssColor,
+        button_active_border: CssColor,
+    ) -> Self {
+        Self {
+            background_start,
+            background_end,
+            button_fg,
+            button_bg,
+            button_border,
+            button_active_bg,
+            button_active_border,
+        }
+    }
+
+    pub const fn background_start(self) -> CssColor {
+        self.background_start
+    }
+
+    pub const fn background_end(self) -> CssColor {
+        self.background_end
+    }
+
+    pub const fn button_fg(self) -> CssColor {
+        self.button_fg
+    }
+
+    pub const fn button_bg(self) -> CssColor {
+        self.button_bg
+    }
+
+    pub const fn button_border(self) -> CssColor {
+        self.button_border
+    }
+
+    pub const fn button_active_bg(self) -> CssColor {
+        self.button_active_bg
+    }
+
+    pub const fn button_active_border(self) -> CssColor {
+        self.button_active_border
+    }
+
+    pub fn set_background_start(&mut self, color: CssColor) {
+        self.background_start = color;
+    }
+
+    pub fn set_background_end(&mut self, color: CssColor) {
+        self.background_end = color;
+    }
+
+    pub fn set_button_fg(&mut self, color: CssColor) {
+        self.button_fg = color;
+    }
+
+    pub fn set_button_bg(&mut self, color: CssColor) {
+        self.button_bg = color;
+    }
+
+    pub fn set_button_border(&mut self, color: CssColor) {
+        self.button_border = color;
+    }
+
+    pub fn set_button_active_bg(&mut self, color: CssColor) {
+        self.button_active_bg = color;
+    }
+
+    pub fn set_button_active_border(&mut self, color: CssColor) {
+        self.button_active_border = color;
+    }
+}
+
+impl CssColor {
+    pub const fn new(red: u8, green: u8, blue: u8, alpha: u8) -> Self {
+        Self {
+            red,
+            green,
+            blue,
+            alpha,
+        }
+    }
+
+    pub const fn red(self) -> u8 {
+        self.red
+    }
+
+    pub const fn green(self) -> u8 {
+        self.green
+    }
+
+    pub const fn blue(self) -> u8 {
+        self.blue
+    }
+
+    pub fn alpha(self) -> f32 {
+        f32::from(self.alpha) / 255.0
     }
 }
 

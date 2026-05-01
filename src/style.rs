@@ -8,7 +8,7 @@ use gtk4::{
     CssProvider, STYLE_PROVIDER_PRIORITY_APPLICATION, style_context_add_provider_for_display,
 };
 
-use crate::config::LauncherConfig;
+use crate::config::{CssColor, LauncherConfig};
 
 const STYLE_CSS: &str = include_str!("../assets/style.css");
 
@@ -39,43 +39,62 @@ pub fn install_global_css(display: &Display, config: &LauncherConfig) {
 
 fn sidebar_runtime_css(config: &LauncherConfig) -> String {
     let opacity = config.sidebar().button_bg_opacity().clamp(0.0, 1.0);
+    let colors = config.sidebar().colors();
 
     format!(
         r#"
+.launcher-sidebar {{
+  background: linear-gradient(
+    180deg,
+    {} 0%,
+    {} 100%
+  );
+}}
+
 .launcher-sidebar-button {{
-  background: rgba(255, 248, 235, {base_bg});
-  border-color: rgba(255, 245, 226, {base_border});
+  color: {};
+  background: {};
+  border-color: {};
 }}
 
 .launcher-sidebar-fixed-button {{
-  background: rgba(255, 248, 235, {fixed_bg});
-  border-color: rgba(255, 239, 214, {fixed_border});
+  background: {};
+  border-color: {};
 }}
 
 .launcher-sidebar-menu-button {{
-  background: rgba(255, 248, 235, {menu_bg});
+  background: {};
+}}
+
+.launcher-sidebar-icon,
+.launcher-sidebar-icon-fallback {{
+  color: {};
 }}
 
 .launcher-sidebar-button:hover {{
-  background: rgba(255, 248, 235, {hover_bg});
+  background: {};
 }}
 
 .launcher-sidebar-button:checked,
 .launcher-sidebar-button:active,
 .launcher-sidebar-button.is-active,
 .launcher-sidebar-button:focus-visible {{
-  background: rgba(245, 214, 148, {active_bg});
-  border-color: rgba(245, 214, 148, {active_border});
+  background: {};
+  border-color: {};
 }}
 "#,
-        base_bg = 0.04_f32 * opacity,
-        base_border = 0.06_f32 * opacity,
-        fixed_bg = 0.12_f32 * opacity,
-        fixed_border = 0.16_f32 * opacity,
-        menu_bg = 0.08_f32 * opacity,
-        hover_bg = 0.16_f32 * opacity,
-        active_bg = 0.22_f32 * opacity,
-        active_border = 0.5_f32 * opacity,
+        css_rgba(colors.background_start(), 1.0),
+        css_rgba(colors.background_end(), 1.0),
+        css_rgba(colors.button_fg(), 1.0),
+        css_rgba(colors.button_bg(), 0.04_f32 * opacity),
+        css_rgba(colors.button_border(), 0.06_f32 * opacity),
+        css_rgba(colors.button_bg(), 0.12_f32 * opacity),
+        css_rgba(colors.button_border(), 0.16_f32 * opacity),
+        css_rgba(colors.button_bg(), 0.08_f32 * opacity),
+        css_rgba(colors.button_fg(), 1.0),
+        css_rgba(colors.button_bg(), 0.16_f32 * opacity),
+        css_rgba(colors.button_active_bg(), 0.22_f32 * opacity),
+        css_rgba(colors.button_active_border(), 0.5_f32 * opacity),
     )
 }
 
@@ -101,6 +120,17 @@ fn grid_runtime_css(config: &LauncherConfig) -> String {
 
 fn css_string_literal(input: &str) -> String {
     format!("\"{}\"", input.replace('\\', "\\\\").replace('"', "\\\""))
+}
+
+fn css_rgba(color: CssColor, multiplier: f32) -> String {
+    let alpha = (color.alpha() * multiplier).clamp(0.0, 1.0);
+    format!(
+        "rgba({}, {}, {}, {:.3})",
+        color.red(),
+        color.green(),
+        color.blue(),
+        alpha
+    )
 }
 
 fn register_theme_font(config: &LauncherConfig) {

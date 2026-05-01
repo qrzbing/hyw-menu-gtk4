@@ -7,10 +7,10 @@ use super::file::{
     SearchPanelFileConfig, SidebarButtonFileEntry, TextPanelFileConfig, TopPanelFileConfig,
 };
 use super::model::{
-    AvatarPanelConfig, ButtonConfig, CharacterVideoConfig, GridSectionConfig, LauncherConfig,
-    MenuAction, ProfileItemConfig, ProfilePanelConfig, ProfileProgressItemConfig,
-    ProfileTextItemConfig, SearchPanelConfig, SidebarConfig, SidebarMetrics, SidebarSizing,
-    SidebarSpacing, TextPanelConfig, TextPanelVariant, ThemeConfig, TopPanelConfig,
+    AvatarPanelConfig, ButtonConfig, CharacterVideoConfig, CssColor, GridSectionConfig,
+    LauncherConfig, MenuAction, ProfileItemConfig, ProfilePanelConfig, ProfileProgressItemConfig,
+    ProfileTextItemConfig, SearchPanelConfig, SidebarColors, SidebarConfig, SidebarMetrics,
+    SidebarSizing, SidebarSpacing, TextPanelConfig, TextPanelVariant, ThemeConfig, TopPanelConfig,
     TopPanelsConfig, WindowConfig,
 };
 
@@ -109,6 +109,58 @@ impl LauncherConfig {
             self.sidebar_mut()
                 .set_button_bg_opacity(button_bg_opacity.clamp(0.0, 1.0));
         }
+
+        let mut sidebar_colors = self.sidebar().colors();
+        update_sidebar_color(
+            &mut sidebar_colors,
+            file_config.sidebar.background_start.as_deref(),
+            SidebarColors::background_start,
+            SidebarColors::set_background_start,
+            "sidebar.background_start",
+        );
+        update_sidebar_color(
+            &mut sidebar_colors,
+            file_config.sidebar.background_end.as_deref(),
+            SidebarColors::background_end,
+            SidebarColors::set_background_end,
+            "sidebar.background_end",
+        );
+        update_sidebar_color(
+            &mut sidebar_colors,
+            file_config.sidebar.button_fg.as_deref(),
+            SidebarColors::button_fg,
+            SidebarColors::set_button_fg,
+            "sidebar.button_fg",
+        );
+        update_sidebar_color(
+            &mut sidebar_colors,
+            file_config.sidebar.button_bg.as_deref(),
+            SidebarColors::button_bg,
+            SidebarColors::set_button_bg,
+            "sidebar.button_bg",
+        );
+        update_sidebar_color(
+            &mut sidebar_colors,
+            file_config.sidebar.button_border.as_deref(),
+            SidebarColors::button_border,
+            SidebarColors::set_button_border,
+            "sidebar.button_border",
+        );
+        update_sidebar_color(
+            &mut sidebar_colors,
+            file_config.sidebar.button_active_bg.as_deref(),
+            SidebarColors::button_active_bg,
+            SidebarColors::set_button_active_bg,
+            "sidebar.button_active_bg",
+        );
+        update_sidebar_color(
+            &mut sidebar_colors,
+            file_config.sidebar.button_active_border.as_deref(),
+            SidebarColors::button_active_border,
+            SidebarColors::set_button_active_border,
+            "sidebar.button_active_border",
+        );
+        self.sidebar_mut().set_colors(sidebar_colors);
 
         if let Some(height) = file_config.top_panels.height {
             self.top_panels_mut().set_height(height.clamp(84, 320));
@@ -229,7 +281,7 @@ impl Default for LauncherConfig {
             CharacterVideoConfig::new(true, None, false, 1.0, 0, 0),
             SidebarConfig::new(
                 SidebarMetrics::new(
-                    SidebarSizing::new(96, 1.0, 0.82, 1.0),
+                    SidebarSizing::new(96, 1.0, 0.82, 1.0, default_sidebar_colors()),
                     SidebarSpacing::new(12, 0, 40),
                 ),
                 ButtonConfig::new(
@@ -606,6 +658,102 @@ fn resolve_config_path(config_dir: Option<&Path>, path: Option<PathBuf>) -> Opti
     })
 }
 
+fn default_sidebar_colors() -> SidebarColors {
+    SidebarColors::new(
+        CssColor::new(0x4c, 0x5f, 0x76, 0xff),
+        CssColor::new(0x3e, 0x4d, 0x61, 0xff),
+        CssColor::new(0xef, 0xe4, 0xcf, 0xff),
+        CssColor::new(0xff, 0xf8, 0xeb, 0xff),
+        CssColor::new(0xff, 0xf5, 0xe2, 0xff),
+        CssColor::new(0xf5, 0xd6, 0x94, 0xff),
+        CssColor::new(0xf5, 0xd6, 0x94, 0xff),
+    )
+}
+
+fn update_sidebar_color(
+    colors: &mut SidebarColors,
+    raw: Option<&str>,
+    current: fn(SidebarColors) -> CssColor,
+    set: fn(&mut SidebarColors, CssColor),
+    field_name: &str,
+) {
+    let Some(raw) = raw.map(str::trim).filter(|value| !value.is_empty()) else {
+        return;
+    };
+
+    match parse_hex_color(raw) {
+        Some(color) => set(colors, color),
+        None => eprintln!(
+            "invalid {field_name} color {raw:?}; expected #RGB, #RGBA, #RRGGBB, or #RRGGBBAA; keeping {}",
+            css_hex_string(current(*colors))
+        ),
+    }
+}
+
+fn parse_hex_color(input: &str) -> Option<CssColor> {
+    let hex = input.strip_prefix('#')?;
+
+    match hex.len() {
+        3 => {
+            let [r, g, b] = hex.as_bytes().try_into().ok()?;
+            Some(CssColor::new(
+                expand_hex_nibble(r)?,
+                expand_hex_nibble(g)?,
+                expand_hex_nibble(b)?,
+                0xff,
+            ))
+        }
+        4 => {
+            let [r, g, b, a] = hex.as_bytes().try_into().ok()?;
+            Some(CssColor::new(
+                expand_hex_nibble(r)?,
+                expand_hex_nibble(g)?,
+                expand_hex_nibble(b)?,
+                expand_hex_nibble(a)?,
+            ))
+        }
+        6 => Some(CssColor::new(
+            u8::from_str_radix(&hex[0..2], 16).ok()?,
+            u8::from_str_radix(&hex[2..4], 16).ok()?,
+            u8::from_str_radix(&hex[4..6], 16).ok()?,
+            0xff,
+        )),
+        8 => Some(CssColor::new(
+            u8::from_str_radix(&hex[0..2], 16).ok()?,
+            u8::from_str_radix(&hex[2..4], 16).ok()?,
+            u8::from_str_radix(&hex[4..6], 16).ok()?,
+            u8::from_str_radix(&hex[6..8], 16).ok()?,
+        )),
+        _ => None,
+    }
+}
+
+fn expand_hex_nibble(byte: u8) -> Option<u8> {
+    char::from(byte)
+        .to_digit(16)
+        .and_then(|digit| u8::try_from(digit).ok())
+        .map(|digit| (digit << 4) | digit)
+}
+
+fn css_hex_string(color: CssColor) -> String {
+    if color.alpha() >= 1.0 {
+        format!(
+            "#{:02x}{:02x}{:02x}",
+            color.red(),
+            color.green(),
+            color.blue()
+        )
+    } else {
+        format!(
+            "#{:02x}{:02x}{:02x}{:02x}",
+            color.red(),
+            color.green(),
+            color.blue(),
+            (color.alpha() * 255.0).round() as u8
+        )
+    }
+}
+
 fn slugify(input: &str) -> String {
     let mut slug = String::with_capacity(input.len());
     let mut last_was_dash = false;
@@ -625,7 +773,8 @@ fn slugify(input: &str) -> String {
 
 #[cfg(test)]
 mod tests {
-    use super::slugify;
+    use super::{parse_hex_color, slugify};
+    use crate::config::model::CssColor;
 
     #[test]
     fn slugifies_ascii_labels() {
@@ -635,5 +784,26 @@ mod tests {
     #[test]
     fn collapses_separator_runs() {
         assert_eq!(slugify("A  /  B"), "a-b");
+    }
+
+    #[test]
+    fn parses_short_hex_color() {
+        assert_eq!(
+            parse_hex_color("#abc"),
+            Some(CssColor::new(0xaa, 0xbb, 0xcc, 0xff))
+        );
+    }
+
+    #[test]
+    fn parses_long_hex_color_with_alpha() {
+        assert_eq!(
+            parse_hex_color("#11223344"),
+            Some(CssColor::new(0x11, 0x22, 0x33, 0x44))
+        );
+    }
+
+    #[test]
+    fn rejects_non_hex_color() {
+        assert!(parse_hex_color("rgb(1, 2, 3)").is_none());
     }
 }
